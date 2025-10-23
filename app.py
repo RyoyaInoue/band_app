@@ -83,7 +83,7 @@ if "members_df" not in st.session_state:
 
 # --- 初期チェック状態 ---
 if "selected" not in st.session_state:
-    st.session_state.selected = {idx: True for idx in st.session_state.members_df.index}
+    st.session_state.selected = {idx: False for idx in st.session_state.members_df.index}
 
 st.title("🎸 バンド作成アプリ")
 
