@@ -197,29 +197,40 @@ if st.button("🎵 バンド作成", key="create_band_btn"):
     st.session_state.create_band_trigger = True
 
 # 🔹 学年ごとに見出しを表示（見やすく）
-if sort_option == "学年順":
-    for year, group in df_display.groupby("学年"):
-        st.markdown(f"#### 🎓 {year}年")
+if sort_option in ["学年順", "パート順", "経験レベル順"]:
+    if sort_option == "学年順":
+        group_key = "学年"
+        group_label = lambda x: f"🎓 {x}年"
+    elif sort_option == "パート順":
+        group_key = "パート"
+        group_label = lambda x: f"🎶 {x}"
+    else:  # 経験レベル順
+        group_key = "経験レベル"
+        group_label = lambda x: f"⭐ {x}"
+
+    for key_value, group in df_display.groupby(group_key):
+        st.markdown(f"#### {group_label(key_value)}")
         cols = st.columns(3)
         for i, (_, row) in enumerate(group.iterrows()):
             col_idx = i % 3
-            key = f"chk_{row.name}"
+            checkbox_key = f"chk_{row.name}"
             st.session_state.selected[row.name] = cols[col_idx].checkbox(
-                f"{row['名前']}（{row['パート']}・{row['経験レベル']}）",
+                f"{row['名前']}（{row['パート']}・{row['学年']}年・{row['経験レベル']}）",
                 value=st.session_state.selected[row.name],
-                key=key
+                key=checkbox_key
             )
 else:
-    # それ以外の並び替えは今まで通り
+    # 一覧表示（グループなし）
     cols = st.columns(3)
     for i, (_, row) in enumerate(df_display.iterrows()):
         col_idx = i % 3
-        key = f"chk_{row.name}"
+        checkbox_key = f"chk_{row.name}"
         st.session_state.selected[row.name] = cols[col_idx].checkbox(
             f"{row['名前']}（{row['パート']}・{row['学年']}年・{row['経験レベル']}）",
             value=st.session_state.selected[row.name],
-            key=key
+            key=checkbox_key
         )
+
 
 # 🔹 参加者リストの上に選択人数を表示
 total_selected = sum(st.session_state.selected.values())
