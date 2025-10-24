@@ -293,37 +293,31 @@ elif page == "ライブスケジュール":
     band_change_minutes = st.number_input("転換時間（分）", min_value=1, value=5)
 
     # ===============================
-    # バンド管理
+    # バンド管理（フォーム版）
     # ===============================
     if "bands_manual" not in st.session_state:
         st.session_state.bands_manual = []
 
-    # 閉じられない枠でバンド登録をまとめる
     st.markdown("### バンド登録")
-    with st.container():
-        # 入力状態の初期化
-        if "band_name_input" not in st.session_state:
-            st.session_state.band_name_input = ""
-        if "selected_members_input" not in st.session_state:
-            st.session_state.selected_members_input = {part: [] for part in parts}
 
-        # バンド名入力
-        band_name = st.text_input(
-            "バンド名", 
-            value=st.session_state.band_name_input,
-            key="band_name_input"
-        )
+    # フォームを使うことで追加後に自動リセット
+    with st.form("add_band_form", clear_on_submit=True):
+        # バンド名
+        band_name = st.text_input("バンド名")
+
+        # パートリスト
+        parts = ["Vo","Gt","Ba","Dr","Key"]
 
         # 選択されたメンバーを保持する辞書
         selected_members = {}
 
-        # パートごとに横並びで割り当てUI
+        # 横並びでパートごとのUI
         cols = st.columns(len(parts))
         for i, part in enumerate(parts):
             with cols[i]:
                 st.markdown(f"**{part}枠**")
                 
-                # 初期値はその枠のパート
+                # 初期値は自分のパート
                 assign_part = st.selectbox(
                     "",
                     options=parts,
@@ -331,20 +325,20 @@ elif page == "ライブスケジュール":
                     key=f"{part}_assign_part"
                 )
                 
-                # 選択されたパートのメンバーだけ表示
+                # 選択されたパートのメンバーのみ表示
                 members_for_assign = df_members[df_members["パート"] == assign_part]["名前"].tolist()
                 selected = st.multiselect(
                     "",
                     options=members_for_assign,
-                    default=st.session_state.selected_members_input.get(part, []),
                     key=f"{part}_select"
                 )
                 
                 # 辞書に格納
                 selected_members[part] = selected
 
-        # 追加ボタン
-        if st.button("バンドを追加"):
+        # バンド追加ボタン
+        submitted = st.form_submit_button("バンドを追加")
+        if submitted:
             if not band_name:
                 st.warning("バンド名を入力してください")
             else:
@@ -353,11 +347,6 @@ elif page == "ライブスケジュール":
                     "メンバー": selected_members
                 })
                 st.success(f"{band_name} を追加しました")
-                
-                # 入力欄をリセット（フォームを再描画せずセッションステートで管理）
-                st.session_state.band_name_input = ""
-                st.session_state.selected_members_input = {part: [] for part in parts}
-
 
 
     # ===============================
