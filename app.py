@@ -4,6 +4,7 @@ import random
 from collections import defaultdict
 from io import BytesIO
 import string
+from datetime import timedelta, datetime
 
 # ===============================================================
 # 初期データの準備
@@ -92,7 +93,7 @@ if "members_df" not in st.session_state:
 # サイドバーでページ選択
 # ===============================================================
 st.sidebar.title("ページ選択")
-page = st.sidebar.radio("ページ", ["バンド作成", "ライブハウス予約・料金計算"])
+page = st.sidebar.radio("ページ", ["バンド作成", "ライブハウス予約・料金計算","ライブスケジュール"])
 
 # ===============================================================
 # 並び替え関数
@@ -268,3 +269,36 @@ elif page == "ライブハウス予約・料金計算":
     st.markdown(f"### 💰 合計料金（税別）: {int(total_price):,}円")
     st.markdown(f"### 💴 合計料金（税込10%）: {total_price_incl_tax:,}円")
 
+# ===============================================================
+# ライブスケジュールページ
+# ===============================================================
+elif page == "ライブハウス予約・料金計算":
+    st.title("🎸 ライブスケジュールシミュレーター")
+
+    # ライブ総時間（前ページから受け取る想定）
+    live_hours = st.number_input("ライブ総時間 (時間)", min_value=4, max_value=12, value=4)
+
+    # 演奏時間と転換時間
+    band_time = st.slider("1バンドの演奏時間 (分)", 10, 30, 20)
+    change_time = st.slider("バンド間の転換時間 (分)", 5, 15, 10)
+
+    # バンド名入力
+    bands_input = st.text_area("バンド名を改行で入力", value="Band A\nBand B\nBand C")
+    bands = [b.strip() for b in bands_input.split("\n") if b.strip()]
+    random.shuffle(bands)  # 演奏順ランダム
+
+    # スケジュール計算
+    total_minutes = live_hours * 60
+    schedule = []
+    current_time = datetime.strptime("18:00", "%H:%M")  # 開始時間を仮に18:00に設定
+    for band in bands:
+        if total_minutes < band_time:
+            break
+        start = current_time
+        end = start + timedelta(minutes=band_time)
+        schedule.append({"バンド": band, "開始": start.strftime("%H:%M"), "終了": end.strftime("%H:%M")})
+        current_time = end + timedelta(minutes=change_time)
+        total_minutes -= (band_time + change_time)
+
+    st.subheader("🎵 スケジュール表")
+    st.table(pd.DataFrame(schedule))
