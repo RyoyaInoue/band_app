@@ -231,13 +231,13 @@ if page == "バンド作成":
 elif page == "ライブハウス予約・料金計算":
     st.title("🎤 ライブハウス予約・料金計算")
 
-    livehouses = ["CLUB GATE", "Shibuya Milkyway", "難波ロケッツ"]
+    livehouses = ["CLUB GATE"]
     selected_house = st.selectbox("ライブハウスを選択", livehouses)
 
     day_options = ["月〜木/平日", "金・日・祝", "土・祝前休日"]
     selected_day = st.selectbox("日程を選択", day_options)
 
-    hours = st.number_input("利用時間（時間）", min_value=4, max_value=12, value=6, step=1)
+    hours = st.number_input("利用時間（時間）", min_value=4, max_value=12, value=4, step=1)
 
     use_dressing_room = st.checkbox("楽屋使用 (2F別室, 10,000円 税別)")
 
