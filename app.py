@@ -336,7 +336,6 @@ elif page == "ライブスケジュール":
                     st.session_state.bands_manual.pop(idx)
                     st.experimental_rerun()
 
-
     # ===============================
     # スケジュール作成
     # ===============================
@@ -344,9 +343,15 @@ elif page == "ライブスケジュール":
         schedule = []
         start_dt = datetime.combine(datetime.today(), start_time)
         # 幹部その他集合
-        schedule.append({"時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"), "項目":"幹部その他集合"})
+        schedule.append({
+            "時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"), 
+            "項目":"幹部その他集合"
+        })
         # 参加者全員集合
-        schedule.append({"時間": (start_dt+timedelta(minutes=30)).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=60)).strftime("%H:%M"), "項目":"参加者全員集合"})
+        schedule.append({
+            "時間": (start_dt+timedelta(minutes=30)).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=60)).strftime("%H:%M"), 
+            "項目":"参加者全員集合"
+        })
         current_time = start_dt + timedelta(minutes=60)
 
         for b in st.session_state.bands_manual:
@@ -396,3 +401,4 @@ elif page == "ライブスケジュール":
                 file_name="live_schedule.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
+
