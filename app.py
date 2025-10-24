@@ -273,60 +273,78 @@ elif page == "ライブハウス予約・料金計算":
 # ライブスケジュールページ
 # ===============================================================
 elif page == "ライブスケジュール":
-    st.title("🎸 ライブスケジュールシミュレーター")
+    st.title("ライブスケジュール作成")
 
-    # ライブ総時間（時間）
-    live_hours = st.number_input("ライブ総時間 (時間)", min_value=4, max_value=12, value=8)
+    # ライブ情報設定
+    live_total_hours = st.number_input("ライブ総時間（時間）", min_value=1, value=8)
+    start_hour = st.number_input("ライブ開始時刻（時）", min_value=0, max_value=23, value=10)
+    start_minute = st.number_input("ライブ開始時刻（分）", min_value=0, max_value=59, value=0)
+    band_play_minutes = st.number_input("1バンド演奏時間（分）", min_value=5, value=20)
+    band_change_minutes = st.number_input("転換時間（分）", min_value=1, value=5)
 
-    # 開始時刻
-    start_time_input = st.time_input("ライブ開始時刻", value=datetime.strptime("10:00", "%H:%M").time())
-    start_time = datetime.combine(datetime.today(), start_time_input)
+    # メンバー選択
+    df_members = pd.DataFrame(members_list)
+    selected_names = st.multiselect("出演可能メンバーを選択", df_members["名前"].tolist())
+    selected_members = df_members[df_members["名前"].isin(selected_names)]
 
-    # 演奏時間・転換時間
-    band_time = st.number_input("1バンドの演奏時間 (分)", min_value=5, max_value=60, value=20, step=5)
-    change_time = st.number_input("バンド間の転換時間 (分)", min_value=5, max_value=30, value=10, step=5)
+    # パートごとに分ける
+    parts = ["Vo","Gt","Ba","Dr","Key"]
+    members_by_part = {part:selected_members[selected_members["パート"]==part]["名前"].tolist() for part in parts}
 
-    # バンド名入力
-    bands_input = st.text_area("バンド名を改行で入力", value="Band A\nBand B\nBand C")
-    bands = [b.strip() for b in bands_input.split("\n") if b.strip()]
-    random.shuffle(bands)
+    # バンド生成
+    def create_band(members_by_part):
+        band = {}
+        for part, names in members_by_part.items():
+            if names:
+                band[part] = random.choice(names)
+            else:
+                band[part] = None
+        return band
 
-    schedule = []
+    # スケジュール作成
+    def create_schedule():
+        schedule = []
+        start_time = datetime(2025, 1, 1, start_hour, start_minute)  # 日付は仮
+        # 幹部その他集合
+        schedule.append({"項目":"幹部その他集合", "開始":start_time, "終了":start_time + timedelta(minutes=30)})
+        # 参加者全員集合
+        schedule.append({"項目":"参加者全員集合", "開始":start_time + timedelta(minutes=30), "終了":start_time + timedelta(minutes=60)})
 
-    # 集合スケジュール
-    schedule.append({"項目": "幹部その他集合",
-                     "開始": start_time.strftime("%H:%M"),
-                     "終了": (start_time + timedelta(minutes=30)).strftime("%H:%M")})
-    schedule.append({"項目": "参加者全員集合",
-                     "開始": (start_time + timedelta(minutes=30)).strftime("%H:%M"),
-                     "終了": (start_time + timedelta(minutes=60)).strftime("%H:%M")})
+        current_time = start_time + timedelta(minutes=60)
+        end_time = start_time + timedelta(hours=live_total_hours)
+        prev_bands = []  # 前2バンドの出演者記録
 
-    current_time = start_time + timedelta(minutes=60)  # バンド開始
-    total_minutes = live_hours * 60 - 60  # 集合時間を引いた残り時間
+        while current_time < end_time:
+            band = create_band(members_by_part)
 
-    for i, band in enumerate(bands):
-        if total_minutes < band_time:
-            break
-        # バンド演奏
-        start = current_time
-        end = start + timedelta(minutes=band_time)
-        schedule.append({"項目": band, "開始": start.strftime("%H:%M"), "終了": end.strftime("%H:%M")})
-        current_time = end
-        total_minutes -= band_time
+            # 3連続出演防止
+            if len(prev_bands) >= 2:
+                for part, member in band.items():
+                    if member in prev_bands[-1].values() and member in prev_bands[-2].values():
+                        # 違うメンバーに変更できれば変更
+                        available = [m for m in members_by_part[part] if m not in prev_bands[-1].values() or m not in prev_bands[-2].values()]
+                        if available:
+                            band[part] = random.choice(available)
+            
+            band_name = "Band " + str(len(schedule)-1)
+            schedule.append({"項目":band_name, "開始":current_time, "終了":current_time + timedelta(minutes=band_play_minutes)})
+            current_time += timedelta(minutes=band_play_minutes)
 
-        # 転換
-        if i < len(bands) - 1 and total_minutes >= change_time:
-            trans_start = current_time
-            trans_end = trans_start + timedelta(minutes=change_time)
-            schedule.append({"項目": "転換", "開始": trans_start.strftime("%H:%M"), "終了": trans_end.strftime("%H:%M")})
-            current_time = trans_end
-            total_minutes -= change_time
+            # 転換時間
+            schedule.append({"項目":"転換", "開始":current_time, "終了":current_time + timedelta(minutes=band_change_minutes)})
+            current_time += timedelta(minutes=band_change_minutes)
 
-    # 撤収
-    if total_minutes > 0:
-        schedule.append({"項目": "撤収",
-                         "開始": current_time.strftime("%H:%M"),
-                         "終了": (current_time + timedelta(minutes=total_minutes)).strftime("%H:%M")})
+            prev_bands.append(band)
+            if len(prev_bands) > 2:
+                prev_bands.pop(0)
 
-    st.subheader("🎵 スケジュール表")
-    st.table(pd.DataFrame(schedule))
+        # 撤収
+        schedule.append({"項目":"撤収", "開始":current_time, "終了":end_time})
+
+        return schedule
+
+    # 作成ボタン
+    if st.button("スケジュール作成"):
+        schedule = create_schedule()
+        for item in schedule:
+            st.write(f"{item['項目']}  {item['開始'].strftime('%H:%M')} 〜 {item['終了'].strftime('%H:%M')}")
