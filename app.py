@@ -6,6 +6,9 @@ from io import BytesIO
 import string
 from datetime import timedelta, datetime
 
+st.set_page_config(page_title="Band Maker", layout="wide")
+
+
 # ===============================================================
 # 初期データの準備
 # ===============================================================
@@ -294,7 +297,7 @@ elif page == "ライブスケジュール":
         st.session_state.bands_manual = []
 
     st.subheader("バンド登録")
-    with st.form("add_band_form"):
+    with st.form("add_band_form", clear_on_submit=True):
         band_name = st.text_input("バンド名")  # Enter 押しても即登録されない
         selected_members = {}
         for part in parts:
