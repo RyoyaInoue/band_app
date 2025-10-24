@@ -282,7 +282,6 @@ elif page == "ライブスケジュール":
         df_members = st.session_state.members_df.copy()
     else:
         df_members = pd.DataFrame(columns=["名前", "学年", "経験", "パート"])
-    member_names = df_members["名前"].tolist()
     parts = ["Vo","Gt","Ba","Dr","Key"]
 
     # ===============================
@@ -299,13 +298,17 @@ elif page == "ライブスケジュール":
     if "bands_manual" not in st.session_state:
         st.session_state.bands_manual = []
 
-    st.subheader("バンド登録")
+    st.subheader("バンド登録（自由パート選択可）")
     with st.form("add_band_form", clear_on_submit=True):
         band_name = st.text_input("バンド名")
-        selected_members = {}
+
+        # 各パートの担当メンバーを選択
+        selected_members = {part: [] for part in parts}
         for part in parts:
-            names_for_part = df_members[df_members["パート"]==part]["名前"].tolist()
-            selected = st.multiselect(f"{part}を選択", names_for_part)
+            st.markdown(f"**{part}担当を選択**")
+            # そのパートに割り当て可能なメンバー全員表示（兼任可）
+            members_for_part = df_members["名前"].tolist()
+            selected = st.multiselect(f"{part}担当", members_for_part, key=f"{part}_multi")
             selected_members[part] = selected
 
         submitted = st.form_submit_button("バンドを追加")
