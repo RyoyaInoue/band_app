@@ -304,26 +304,26 @@ elif page == "ライブスケジュール":
         selected_members = {}
 
         for part in parts:
-        st.markdown(f"**{part}枠に割り当てるメンバー**")
-        # 横並びでパート選択
-        cols = st.columns(len(parts))
-        assign_part = part  # デフォルトは自分のパート
-        assign_part_idx = st.radio(
-            "",
-            options=list(range(len(parts))),
-            format_func=lambda i: parts[i],
-            key=f"{part}_assign_radio"
-        )
-        assign_part = parts[assign_part_idx]
+            st.markdown(f"**{part}枠に割り当てるメンバー**")
+            # 横並びでパート選択
+            cols = st.columns(len(parts))
+            assign_part = part  # デフォルトは自分のパート
+            assign_part_idx = st.radio(
+                "",
+                options=list(range(len(parts))),
+                format_func=lambda i: parts[i],
+                key=f"{part}_assign_radio"
+            )
+            assign_part = parts[assign_part_idx]
 
-        # 選択されたパートのメンバーだけ表示
-        members_for_assign = df_members[df_members["パート"] == assign_part]["名前"].tolist()
-        selected = st.multiselect(
-            f"{assign_part}パートから選択",
-            options=members_for_assign,
-            key=f"{part}_select"
-        )
-        selected_members[part] = selected
+            # 選択されたパートのメンバーだけ表示
+            members_for_assign = df_members[df_members["パート"] == assign_part]["名前"].tolist()
+            selected = st.multiselect(
+                f"{assign_part}パートから選択",
+                options=members_for_assign,
+                key=f"{part}_select"
+            )
+            selected_members[part] = selected
 
 
         submitted = st.form_submit_button("バンドを追加")
