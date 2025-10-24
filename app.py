@@ -303,17 +303,19 @@ elif page == "ライブスケジュール":
         band_name = st.text_input("バンド名")
         selected_members = {}
 
-        for part in parts:  # Vo, Gt, Ba, Dr, Key
-            st.markdown(f"**{part}に割り当てるメンバー**")
-            
-            # パートを選択するラジオボタン（どのパートの人を割り当てるか）
-            assign_from_part = st.radio(f"{part}に誰を割り当てる？", options=parts, key=f"radio_{part}")
-            
-            # 選択されたパートのメンバー一覧を取得
-            members_for_assign = df_members[df_members["パート"] == assign_from_part]["名前"].tolist()
-            
-            # その中から選択
-            selected = st.multiselect(f"{assign_from_part}から選ぶ", options=members_for_assign, key=f"multi_{part}")
+        for part in parts:
+            st.markdown(f"**{part}パートに割り当てるメンバー**")
+            assign_part = st.selectbox(
+                f"{part}枠にどのパートの人を入れるか",
+                options=parts,
+                key=f"{part}_assign_part"
+            )
+            members_for_assign = df_members[df_members["パート"]==assign_part]["名前"].tolist()
+            selected = st.multiselect(
+                f"{assign_part}パートから選択",
+                options=members_for_assign,
+                key=f"{part}_select"
+            )
             selected_members[part] = selected
 
         submitted = st.form_submit_button("バンドを追加")
@@ -327,7 +329,6 @@ elif page == "ライブスケジュール":
                 })
                 st.success(f"{band_name} を追加しました")
 
-
     # ===============================
     # 登録済みバンド表示と削除
     # ===============================
@@ -337,7 +338,6 @@ elif page == "ライブスケジュール":
             cols = st.columns([4, 1])
             with cols[0]:
                 st.markdown(f"**🎸 {b['バンド名']}**")
-                # リストを文字列化してDataFrame表示
                 member_str_dict = {part: ", ".join(members) if members else "" for part, members in b["メンバー"].items()}
                 band_table = pd.DataFrame.from_dict(member_str_dict, orient="index", columns=["メンバー"])
                 st.dataframe(band_table, use_container_width=True, height=len(band_table)*35 + 35)
@@ -352,12 +352,11 @@ elif page == "ライブスケジュール":
     def create_schedule_manual():
         schedule = []
         start_dt = datetime.combine(datetime.today(), start_time)
-        # 幹部その他集合
+
         schedule.append({
             "時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"),
             "項目":"幹部その他集合"
         })
-        # 参加者全員集合
         schedule.append({
             "時間": (start_dt+timedelta(minutes=30)).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=60)).strftime("%H:%M"),
             "項目":"参加者全員集合"
