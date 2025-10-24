@@ -279,9 +279,9 @@ elif page == "ライブスケジュール":
     from datetime import datetime, timedelta
     from io import BytesIO
 
-    # ---------------------------------
+    # --------------------------
     # メンバー情報の取得
-    # ---------------------------------
+    # --------------------------
     if "members_df" in st.session_state:
         df_members = st.session_state.members_df.copy()
     else:
@@ -289,9 +289,9 @@ elif page == "ライブスケジュール":
 
     parts = ["Vo", "Gt", "Ba", "Dr", "Key"]
 
-    # ===============================
+    # --------------------------
     # セッションステート初期化
-    # ===============================
+    # --------------------------
     if "bands_manual" not in st.session_state:
         st.session_state["bands_manual"] = []
 
@@ -304,17 +304,21 @@ elif page == "ライブスケジュール":
     if "assigned_parts_input" not in st.session_state:
         st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
 
-    # ===============================
-    # 入力リセット用関数
-    # ===============================
+    # --------------------------
+    # バンド入力リセット関数
+    # --------------------------
     def reset_band_inputs():
         st.session_state["band_name_input"] = ""
         st.session_state["selected_members_input"] = {part: [] for part in parts}
         st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
+        # フォームのkeyに反映
+        for part in parts:
+            st.session_state[f"{part}_assigned_parts"] = [part]
+            st.session_state[f"{part}_select"] = []
 
-    # ===============================
-    # バンド追加用関数
-    # ===============================
+    # --------------------------
+    # バンド追加関数
+    # --------------------------
     def add_band():
         band_name = st.session_state["band_name_input"]
         selected_members = st.session_state["selected_members_input"]
@@ -328,9 +332,9 @@ elif page == "ライブスケジュール":
         st.success(f"{band_name} を追加しました")
         reset_band_inputs()
 
-    # ===============================
-    # バンド削除用関数
-    # ===============================
+    # --------------------------
+    # バンド削除関数
+    # --------------------------
     def delete_band(idx):
         st.session_state["bands_manual"].pop(idx)
 
@@ -339,7 +343,6 @@ elif page == "ライブスケジュール":
     # ===============================
     st.markdown("### バンド登録（複数パートの割り当て可能）")
     with st.container():
-        # バンド名入力
         band_name = st.text_input(
             "バンド名",
             value=st.session_state["band_name_input"],
@@ -347,16 +350,11 @@ elif page == "ライブスケジュール":
         )
         st.session_state["band_name_input"] = band_name
 
-        # 選択されたメンバーを保持する辞書
         selected_members = {}
-
-        # パートごとに横並びUI
         cols = st.columns(len(parts))
         for i, part in enumerate(parts):
             with cols[i]:
                 st.markdown(f"**{part}枠**")
-
-                # 割り当てたいパートを複数選択
                 assigned_parts = st.multiselect(
                     "追加するパート",
                     options=parts,
@@ -365,25 +363,24 @@ elif page == "ライブスケジュール":
                 )
                 st.session_state["assigned_parts_input"][part] = assigned_parts
 
-                # 選択したパートのメンバーをまとめて取得
                 members_for_assign = []
                 for p in assigned_parts:
                     members_for_assign += df_members[df_members["パート"] == p]["名前"].tolist()
-                members_for_assign = list(dict.fromkeys(members_for_assign))  # 重複除去
+                members_for_assign = list(dict.fromkeys(members_for_assign))
 
-                # メンバー選択
                 selected = st.multiselect(
                     "メンバー選択",
                     options=members_for_assign,
-                    default=[],
+                    default=st.session_state["selected_members_input"].get(part, []),
                     key=f"{part}_select"
                 )
                 selected_members[part] = selected
 
         st.session_state["selected_members_input"] = selected_members
 
-        # バンド追加ボタン
+        # バンド追加・リセットボタン
         st.button("バンドを追加", on_click=add_band)
+        st.button("入力をリセット", on_click=reset_band_inputs)
 
     # ===============================
     # 登録済みバンド表示と削除
@@ -401,13 +398,21 @@ elif page == "ライブスケジュール":
                 st.button("削除", key=f"del_{idx}", on_click=delete_band, args=(idx,))
 
     # ===============================
+    # スケジュール設定UI
+    # ===============================
+    st.markdown("### スケジュール設定")
+    start_time = st.time_input("ライブ開始時刻", value=datetime.strptime("12:00", "%H:%M").time())
+    band_play_minutes = st.number_input("1バンド演奏時間（分）", value=20, min_value=1)
+    band_change_minutes = st.number_input("バンド転換時間（分）", value=5, min_value=0)
+    live_total_hours = st.number_input("ライブ全体の所要時間（時間）", value=4, min_value=1)
+
+    # ===============================
     # スケジュール作成関数
     # ===============================
-    def create_schedule_manual(start_time="12:00", band_play_minutes=20, band_change_minutes=5, live_total_hours=4):
+    def create_schedule_manual():
         schedule = []
-        start_dt = datetime.combine(datetime.today(), datetime.strptime(start_time, "%H:%M").time())
+        start_dt = datetime.combine(datetime.today(), start_time)
 
-        # 幹部集合・参加者集合
         schedule.append({
             "時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"),
             "項目":"幹部その他集合"
@@ -429,7 +434,6 @@ elif page == "ライブスケジュール":
             schedule.append(row)
             current_time = end_band
 
-            # 転換時間
             end_change = current_time + timedelta(minutes=band_change_minutes)
             schedule.append({
                 "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
@@ -438,10 +442,9 @@ elif page == "ライブスケジュール":
             })
             current_time = end_change
 
-        # 撤収
-        end_time = start_dt + timedelta(hours=live_total_hours)
+        end_time_dt = start_dt + timedelta(hours=live_total_hours)
         schedule.append({
-            "時間": f"{current_time.strftime('%H:%M')}〜{end_time.strftime('%H:%M')}",
+            "時間": f"{current_time.strftime('%H:%M')}〜{end_time_dt.strftime('%H:%M')}",
             "項目":"撤収",
             "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
         })
