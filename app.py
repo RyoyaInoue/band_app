@@ -331,7 +331,7 @@ elif page == "ライブスケジュール":
                 # リストを文字列化してDataFrame表示
                 member_str_dict = {part: ", ".join(members) if members else "" for part, members in b["メンバー"].items()}
                 band_table = pd.DataFrame.from_dict(member_str_dict, orient="index", columns=["メンバー"])
-                st.dataframe(band_table, use_container_width=True, height=len(band_table)*50)
+                st.dataframe(band_table, use_container_width=True, height=len(band_table)*45)
             with cols[1]:
                 if st.button("削除", key=f"del_{idx}"):
                     st.session_state.bands_manual.pop(idx)
