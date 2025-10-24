@@ -270,57 +270,71 @@ elif page == "ライブハウス予約・料金計算":
     st.markdown(f"### 💴 合計料金（税込10%）: {total_price_incl_tax:,}円")
 
 # ===============================================================
-# ライブスケジュールページ修正版
+# ライブスケジュールページ
 # ===============================================================
 elif page == "ライブスケジュール":
     st.title("ライブスケジュール作成（手動バンド登録）")
 
+    # ---------------------------------
+    # メンバー情報の取得
+    # ---------------------------------
+    if "members_df" in st.session_state:
+        df_members = st.session_state.members_df.copy()
+    else:
+        df_members = pd.DataFrame(columns=["名前", "学年", "経験", "パート"])
     parts = ["Vo","Gt","Ba","Dr","Key"]
 
-    # バンド管理
+    # ===============================
+    # セッションステート初期化
+    # ===============================
     if "bands_manual" not in st.session_state:
-        st.session_state.bands_manual = []
+        st.session_state["bands_manual"] = []
 
-    # ------------------------
-    # スケジュール時間設定
-    # ------------------------
-    st.sidebar.subheader("ライブ時間設定")
-    start_time = st.sidebar.time_input("開始時間", value=datetime.strptime("13:00", "%H:%M").time())
-    band_play_minutes = st.sidebar.number_input("1バンド演奏時間（分）", min_value=10, max_value=180, value=20, step=5)
-    band_change_minutes = st.sidebar.number_input("転換時間（分）", min_value=1, max_value=60, value=5, step=1)
-    live_total_hours = st.sidebar.number_input("ライブ総時間（時間）", min_value=1, max_value=12, value=4, step=1)
+    if "band_name_input" not in st.session_state:
+        st.session_state["band_name_input"] = ""
 
-    # ------------------------
+    if "selected_members_input" not in st.session_state:
+        st.session_state["selected_members_input"] = {part: [] for part in parts}
+
+    if "assigned_parts_input" not in st.session_state:
+        st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
+
+    # ===============================
     # バンド登録UI
-    # ------------------------
-    st.markdown("### バンド登録（複数パート割り当て可）")
+    # ===============================
+    st.markdown("### バンド登録（複数パートの割り当て可能）")
     with st.container():
-        if "band_name_input" not in st.session_state:
-            st.session_state.band_name_input = ""
-        if "assigned_parts_input" not in st.session_state:
-            st.session_state.assigned_parts_input = {part: [part] for part in parts}
+        band_name = st.text_input(
+            "バンド名",
+            value=st.session_state["band_name_input"],
+            key="band_name_input_display"
+        )
 
-        band_name = st.text_input("バンド名", value=st.session_state.band_name_input, key="band_name_input")
-
+        # 選択されたメンバーを保持する辞書
         selected_members = {}
+
+        # パートごとに横並びUI
         cols = st.columns(len(parts))
         for i, part in enumerate(parts):
             with cols[i]:
                 st.markdown(f"**{part}枠**")
+
+                # 割り当てたいパートを複数選択
                 assigned_parts = st.multiselect(
                     "追加するパート",
                     options=parts,
-                    default=st.session_state.assigned_parts_input.get(part, [part]),
+                    default=st.session_state["assigned_parts_input"].get(part, [part]),
                     key=f"{part}_assigned_parts"
                 )
-                st.session_state.assigned_parts_input[part] = assigned_parts
+                st.session_state["assigned_parts_input"][part] = assigned_parts
 
-                # メンバー取得
+                # 選択したパートのメンバーをまとめて取得
                 members_for_assign = []
                 for p in assigned_parts:
-                    members_for_assign += st.session_state.members_df[st.session_state.members_df["パート"] == p]["名前"].tolist()
-                members_for_assign = list(dict.fromkeys(members_for_assign))
+                    members_for_assign += df_members[df_members["パート"] == p]["名前"].tolist()
+                members_for_assign = list(dict.fromkeys(members_for_assign))  # 重複除去
 
+                # メンバー選択（初期値は空にして常に最新メンバーを表示）
                 selected = st.multiselect(
                     "メンバー選択",
                     options=members_for_assign,
@@ -329,44 +343,51 @@ elif page == "ライブスケジュール":
                 )
                 selected_members[part] = selected
 
+        # バンド追加ボタン
         if st.button("バンドを追加"):
             if not band_name:
                 st.warning("バンド名を入力してください")
             else:
-                st.session_state.bands_manual.append({
+                st.session_state["bands_manual"].append({
                     "バンド名": band_name,
                     "メンバー": selected_members
                 })
                 st.success(f"{band_name} を追加しました")
-                st.session_state.band_name_input = ""
+
+                # 安全に入力欄をリセット
+                st.session_state["band_name_input"] = ""
+                st.session_state["selected_members_input"] = {part: [] for part in parts}
+                st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
+
                 st.experimental_rerun()
 
-    # ------------------------
-    # 登録済バンド表示
-    # ------------------------
-    if st.session_state.bands_manual:
+    # ===============================
+    # 登録済みバンド表示と削除
+    # ===============================
+    if st.session_state["bands_manual"]:
         st.subheader("登録済みバンド一覧")
-        for idx, b in enumerate(st.session_state.bands_manual):
-            cols = st.columns([4,1])
+        for idx, b in enumerate(st.session_state["bands_manual"]):
+            cols = st.columns([4, 1])
             with cols[0]:
                 st.markdown(f"**🎸 {b['バンド名']}**")
                 member_str_dict = {part: ", ".join(members) if members else "" for part, members in b["メンバー"].items()}
                 band_table = pd.DataFrame.from_dict(member_str_dict, orient="index", columns=["メンバー"])
-                st.dataframe(band_table, use_container_width=True, height=len(band_table)*35+35)
+                st.dataframe(band_table, use_container_width=True, height=len(band_table)*35 + 35)
             with cols[1]:
                 if st.button("削除", key=f"del_{idx}"):
-                    st.session_state.bands_manual.pop(idx)
+                    st.session_state["bands_manual"].pop(idx)
                     st.experimental_rerun()
 
-    # ------------------------
-    # スケジュール作成
-    # ------------------------
-    def create_schedule_manual():
+    # ===============================
+    # スケジュール作成関数
+    # ===============================
+    def create_schedule_manual(start_time="12:00", band_play_minutes=20, band_change_minutes=5, live_total_hours=4):
         schedule = []
-        start_dt = datetime.combine(datetime.today(), start_time)
+        start_dt = datetime.combine(datetime.today(), datetime.strptime(start_time, "%H:%M").time())
 
+        # 幹部集合・参加者集合
         schedule.append({
-            "時間": start_dt.strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"),
+            "時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"),
             "項目":"幹部その他集合"
         })
         schedule.append({
@@ -375,7 +396,7 @@ elif page == "ライブスケジュール":
         })
         current_time = start_dt + timedelta(minutes=60)
 
-        for b in st.session_state.bands_manual:
+        for b in st.session_state["bands_manual"]:
             end_band = current_time + timedelta(minutes=band_play_minutes)
             row = {
                 "時間": f"{current_time.strftime('%H:%M')}〜{end_band.strftime('%H:%M')}",
@@ -391,7 +412,7 @@ elif page == "ライブスケジュール":
             schedule.append({
                 "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
                 "項目": "転換",
-                **{part:"" for part in parts}
+                "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
             })
             current_time = end_change
 
@@ -400,18 +421,22 @@ elif page == "ライブスケジュール":
         schedule.append({
             "時間": f"{current_time.strftime('%H:%M')}〜{end_time.strftime('%H:%M')}",
             "項目":"撤収",
-            **{part:"" for part in parts}
+            "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
         })
         return pd.DataFrame(schedule)
 
+    # ===============================
+    # スケジュール作成ボタン
+    # ===============================
     if st.button("スケジュール作成"):
-        if not st.session_state.bands_manual:
+        if not st.session_state["bands_manual"]:
             st.warning("まずバンドを登録してください")
         else:
             schedule_df = create_schedule_manual()
             st.subheader("ライブスケジュール")
             st.dataframe(schedule_df, use_container_width=True, height=600)
 
+            # Excelダウンロード
             towrite = BytesIO()
             schedule_df.to_excel(towrite, index=False, sheet_name="Schedule", engine="openpyxl")
             towrite.seek(0)
