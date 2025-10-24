@@ -298,9 +298,17 @@ elif page == "ライブスケジュール":
     if "bands_manual" not in st.session_state:
         st.session_state.bands_manual = []
 
-    with st.expander("バンド登録", expanded=True):
+    # 閉じられない枠でバンド登録をまとめる
+    st.markdown("### バンド登録")
+    with st.container():
+        # セッションステートで一時保存用
+        if "band_name_input" not in st.session_state:
+            st.session_state.band_name_input = ""
+        if "selected_members_input" not in st.session_state:
+            st.session_state.selected_members_input = {part: [] for part in parts}
+
         # バンド名入力
-        band_name = st.text_input("バンド名")
+        band_name = st.text_input("バンド名", value=st.session_state.band_name_input, key="band_name_input")
 
         # 選択されたメンバーを保持する辞書
         selected_members = {}
@@ -322,8 +330,9 @@ elif page == "ライブスケジュール":
                 # 選択されたパートのメンバーのみ表示
                 members_for_assign = df_members[df_members["パート"] == assign_part]["名前"].tolist()
                 selected = st.multiselect(
-                    "",  # ラベルをなくしてコンパクトに
+                    "",
                     options=members_for_assign,
+                    default=st.session_state.selected_members_input.get(part, []),
                     key=f"{part}_select"
                 )
                 
@@ -340,6 +349,13 @@ elif page == "ライブスケジュール":
                     "メンバー": selected_members
                 })
                 st.success(f"{band_name} を追加しました")
+                
+                # 入力欄をリセット
+                st.session_state.band_name_input = ""
+                st.session_state.selected_members_input = {part: [] for part in parts}
+                for part in parts:
+                    st.session_state[f"{part}_select"] = []
+
 
 
 
