@@ -273,7 +273,7 @@ elif page == "ライブハウス予約・料金計算":
 # ライブスケジュールページ
 # ===============================================================
 elif page == "ライブスケジュール":
-    st.title("ライブスケジュール作成")
+    st.title("ライブスケジュール作成（手動バンド登録）")
 
     # ライブ情報設定
     live_total_hours = st.number_input("ライブ総時間（時間）", min_value=1, value=8)
@@ -282,70 +282,95 @@ elif page == "ライブスケジュール":
     band_play_minutes = st.number_input("1バンド演奏時間（分）", min_value=5, value=20)
     band_change_minutes = st.number_input("転換時間（分）", min_value=1, value=5)
 
-    # メンバー選択（セッションステートのDataFrameから取得）
     df_members = st.session_state.members_df.copy()
-    selected_names = st.multiselect("出演可能メンバーを選択", df_members["名前"].tolist())
-    selected_members = df_members[df_members["名前"].isin(selected_names)]
-
-    # パートごとに分ける
+    member_names = df_members["名前"].tolist()
     parts = ["Vo","Gt","Ba","Dr","Key"]
-    members_by_part = {part: selected_members[selected_members["パート"]==part]["名前"].tolist() for part in parts}
 
-    # バンド生成
-    def create_band(members_by_part):
-        band = {}
-        for part, names in members_by_part.items():
-            if names:
-                band[part] = random.choice(names)
+    if "bands_manual" not in st.session_state:
+        st.session_state.bands_manual = []
+
+    st.subheader("バンド登録")
+    with st.form("add_band_form"):
+        band_name = st.text_input("バンド名")
+        selected_members = {}
+        for part in parts:
+            names_for_part = df_members[df_members["パート"]==part]["名前"].tolist()
+            selected = st.multiselect(f"{part}を選択", names_for_part)
+            selected_members[part] = selected
+
+        submitted = st.form_submit_button("バンドを追加")
+        if submitted:
+            if not band_name:
+                st.warning("バンド名を入力してください")
             else:
-                band[part] = None
-        return band
+                st.session_state.bands_manual.append({
+                    "バンド名": band_name,
+                    "メンバー": selected_members
+                })
+                st.success(f"{band_name} を追加しました")
+
+    # 登録済みバンドの表示
+    if st.session_state.bands_manual:
+        st.subheader("登録済みバンド")
+        for b in st.session_state.bands_manual:
+            st.write(f"**{b['バンド名']}**")
+            for part, members_list in b["メンバー"].items():
+                st.write(f"{part}: {', '.join(members_list) if members_list else '（空き）'}")
 
     # スケジュール作成
-    def create_schedule():
+    def create_schedule_manual():
         schedule = []
-        start_time = datetime(2025, 1, 1, start_hour, start_minute)  # 日付は仮
+        start_time = datetime(2025,1,1,start_hour,start_minute)
         # 幹部その他集合
-        schedule.append({"項目":"幹部その他集合", "開始":start_time, "終了":start_time + timedelta(minutes=30)})
+        schedule.append({"時間":"10:00〜10:30","項目":"幹部その他集合"})
         # 参加者全員集合
-        schedule.append({"項目":"参加者全員集合", "開始":start_time + timedelta(minutes=30), "終了":start_time + timedelta(minutes=60)})
-
+        schedule.append({"時間":"10:30〜11:00","項目":"参加者全員集合"})
         current_time = start_time + timedelta(minutes=60)
-        end_time = start_time + timedelta(hours=live_total_hours)
-        prev_bands = []  # 前2バンドの出演者記録
 
-        while current_time < end_time:
-            band = create_band(members_by_part)
-
-            # 3連続出演防止
-            if len(prev_bands) >= 2:
-                for part, member in band.items():
-                    if member in prev_bands[-1].values() and member in prev_bands[-2].values():
-                        # 違うメンバーに変更できれば変更
-                        available = [m for m in members_by_part[part] 
-                                     if m not in prev_bands[-1].values() or m not in prev_bands[-2].values()]
-                        if available:
-                            band[part] = random.choice(available)
-            
-            band_name = "Band " + str(len(schedule)-2)
-            schedule.append({"項目":band_name, "開始":current_time, "終了":current_time + timedelta(minutes=band_play_minutes)})
-            current_time += timedelta(minutes=band_play_minutes)
+        for b in st.session_state.bands_manual:
+            end_band = current_time + timedelta(minutes=band_play_minutes)
+            row = {
+                "時間": f"{current_time.strftime('%H:%M')}〜{end_band.strftime('%H:%M')}",
+                "項目": b["バンド名"]
+            }
+            for part in parts:
+                row[part] = ", ".join(b["メンバー"].get(part, []))
+            schedule.append(row)
+            current_time = end_band
 
             # 転換時間
-            schedule.append({"項目":"転換", "開始":current_time, "終了":current_time + timedelta(minutes=band_change_minutes)})
-            current_time += timedelta(minutes=band_change_minutes)
-
-            prev_bands.append(band)
-            if len(prev_bands) > 2:
-                prev_bands.pop(0)
+            end_change = current_time + timedelta(minutes=band_change_minutes)
+            schedule.append({
+                "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
+                "項目": "転換",
+                "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
+            })
+            current_time = end_change
 
         # 撤収
-        schedule.append({"項目":"撤収", "開始":current_time, "終了":end_time})
+        end_time = start_time + timedelta(hours=live_total_hours)
+        schedule.append({
+            "時間": f"{current_time.strftime('%H:%M')}〜{end_time.strftime('%H:%M')}",
+            "項目":"撤収",
+            "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
+        })
+        return pd.DataFrame(schedule)
 
-        return schedule
-
-    # 作成ボタン
     if st.button("スケジュール作成"):
-        schedule = create_schedule()
-        for item in schedule:
-            st.write(f"{item['項目']}  {item['開始'].strftime('%H:%M')} 〜 {item['終了'].strftime('%H:%M')}")
+        if not st.session_state.bands_manual:
+            st.warning("まずバンドを登録してください")
+        else:
+            schedule_df = create_schedule_manual()
+            st.subheader("ライブスケジュール")
+            st.dataframe(schedule_df, use_container_width=True)
+
+            # Excelダウンロード
+            towrite = BytesIO()
+            schedule_df.to_excel(towrite, index=False, sheet_name="Schedule", engine="openpyxl")
+            towrite.seek(0)
+            st.download_button(
+                "Excel ダウンロード",
+                data=towrite,
+                file_name="live_schedule.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
