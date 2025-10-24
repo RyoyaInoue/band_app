@@ -276,10 +276,10 @@ elif page == "ライブスケジュール":
     st.title("🎸 ライブスケジュールシミュレーター")
 
     # ライブ総時間（時間）
-    live_hours = st.number_input("ライブ総時間 (時間)", min_value=4, max_value=12, value=4)
+    live_hours = st.number_input("ライブ総時間 (時間)", min_value=4, max_value=12, value=8)
 
     # 開始時刻
-    start_time_input = st.time_input("ライブ開始時刻", value=datetime.strptime("18:00", "%H:%M").time())
+    start_time_input = st.time_input("ライブ開始時刻", value=datetime.strptime("10:00", "%H:%M").time())
     start_time = datetime.combine(datetime.today(), start_time_input)
 
     # 演奏時間・転換時間
