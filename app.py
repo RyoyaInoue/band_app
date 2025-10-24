@@ -305,20 +305,22 @@ elif page == "ライブスケジュール":
 
         for part in parts:
             st.markdown(f"**{part}パートに割り当てるメンバー**")
-            # 横並びラジオボタンでパートを選択
+
+            # 横並びのラジオボタンでパート選択
             assign_part = st.radio(
-                f"{part}枠にどのパートの人を入れるか",
+                "",  # 文を消す
                 options=parts,
-                index=parts.index(part),  # デフォルトは自分のパート
+                index=parts.index(part),
                 horizontal=True,
-                key=f"{part}_assign_part"
+                key=f"assign_{part}"  # パートごとに固有のキー
             )
+
             # 選択されたパートのメンバーだけ表示
             members_for_assign = df_members[df_members["パート"] == assign_part]["名前"].tolist()
             selected = st.multiselect(
                 f"{assign_part}パートから選択",
                 options=members_for_assign,
-                key=f"{part}_select"
+                key=f"select_{part}"  # パートごとに固有のキー
             )
             selected_members[part] = selected
 
@@ -332,6 +334,7 @@ elif page == "ライブスケジュール":
                     "メンバー": selected_members
                 })
                 st.success(f"{band_name} を追加しました")
+
 
 
     # ===============================
