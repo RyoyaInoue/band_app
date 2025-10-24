@@ -298,17 +298,23 @@ elif page == "ライブスケジュール":
     if "bands_manual" not in st.session_state:
         st.session_state.bands_manual = []
 
-    st.subheader("バンド登録（自由パート選択可）")
     st.subheader("バンド登録")
     with st.form("add_band_form", clear_on_submit=True):
         band_name = st.text_input("バンド名")
+        selected_members = {}
 
-        selected_members = {}  # 各パートの選択メンバーを格納する辞書
-        for part in parts:
-            # 各パートに所属する人を抽出
-            members_for_part = df_members["名前"].tolist()  # 全メンバーから選択可能にする
-            selected_for_part = st.multiselect(f"{part}に割り当てるメンバー", options=members_for_part)
-            selected_members[part] = selected_for_part
+        for part in parts:  # Vo, Gt, Ba, Dr, Key
+            st.markdown(f"**{part}に割り当てるメンバー**")
+            
+            # パートを選択するラジオボタン（どのパートの人を割り当てるか）
+            assign_from_part = st.radio(f"{part}に誰を割り当てる？", options=parts, key=f"radio_{part}")
+            
+            # 選択されたパートのメンバー一覧を取得
+            members_for_assign = df_members[df_members["パート"] == assign_from_part]["名前"].tolist()
+            
+            # その中から選択
+            selected = st.multiselect(f"{assign_from_part}から選ぶ", options=members_for_assign, key=f"multi_{part}")
+            selected_members[part] = selected
 
         submitted = st.form_submit_button("バンドを追加")
         if submitted:
