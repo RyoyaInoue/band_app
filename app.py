@@ -409,9 +409,11 @@ elif page == "ライブスケジュール":
     # スケジュール作成関数（連続出演調整付き）
     # ===============================
     def create_schedule_manual():
+        import copy
         schedule = []
         start_dt = datetime.combine(datetime.today(), start_time)
 
+        # 幹部集合・参加者集合
         schedule.append({
             "時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"),
             "項目":"幹部その他集合"
@@ -422,27 +424,61 @@ elif page == "ライブスケジュール":
         })
         current_time = start_dt + timedelta(minutes=60)
 
-        # 連続出演調整
-        bands = st.session_state["bands_manual"].copy()
+        # バンドの順序調整用コピー
+        bands = copy.deepcopy(st.session_state["bands_manual"])
         scheduled_bands = []
-        recent_members = set()
+        last_two_members = []  # 直近2バンドの出演者を記録
 
         while bands:
             for i, b in enumerate(bands):
-                members = set(sum(b["メンバー"].values(), []))
-                if recent_members & members:
-                    continue  # 最近出演した人がいる場合はスキップ
-                scheduled_bands.append(b)
-                recent_members = members
-                bands.pop(i)
-                break
-            else:
-                # 全バンドが連続出演の条件に当たる場合はそのまま追加
-                scheduled_bands.extend(bands)
-                break
+                all_members = sum(b["メンバー"].values(), [])  # バンドの全メンバー
+                vo_dr_members = b["メンバー"].get("Vo", []) + b["メンバー"].get("Dr", [])
 
-        # スケジュール生成
+                # 直近2バンドのメンバーと重複しないかチェック
+                conflict = False
+                for member in all_members:
+                    # 3連続禁止判定
+                    count_recent = sum(member in m for m in last_two_members)
+                    if member in vo_dr_members:
+                        if count_recent >= 1:  # Vo/Drは連続NG
+                            conflict = True
+                            break
+                    else:
+                        if count_recent >= 2:  # その他は3連続NG
+                            conflict = True
+                            break
+
+                if not conflict:
+                    scheduled_bands.append(b)
+                    # last_two_members更新
+                    last_two_members.append(all_members)
+                    if len(last_two_members) > 2:
+                        last_two_members.pop(0)
+                    bands.pop(i)
+                    break
+            else:
+                # 全ての候補が3連続制約に引っかかった場合、強制的に1バンド挿入（転換時間）
+                scheduled_bands.append(None)  # Noneは空転換
+                last_two_members.append([])
+                if len(last_two_members) > 2:
+                    last_two_members.pop(0)
+
+        # =========================
+        # スケジュール表作成
+        # =========================
         for b in scheduled_bands:
+            if b is None:
+                # 強制転換
+                end_change = current_time + timedelta(minutes=band_change_minutes)
+                schedule.append({
+                    "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
+                    "項目": "転換",
+                    "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
+                })
+                current_time = end_change
+                continue
+
+            # 演奏
             end_band = current_time + timedelta(minutes=band_play_minutes)
             row = {
                 "時間": f"{current_time.strftime('%H:%M')}〜{end_band.strftime('%H:%M')}",
@@ -453,6 +489,7 @@ elif page == "ライブスケジュール":
             schedule.append(row)
             current_time = end_band
 
+            # 転換
             end_change = current_time + timedelta(minutes=band_change_minutes)
             schedule.append({
                 "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
@@ -461,6 +498,7 @@ elif page == "ライブスケジュール":
             })
             current_time = end_change
 
+        # 撤収
         end_time_dt = start_dt + timedelta(hours=live_total_hours)
         schedule.append({
             "時間": f"{current_time.strftime('%H:%M')}〜{end_time_dt.strftime('%H:%M')}",
