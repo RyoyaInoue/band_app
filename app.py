@@ -278,30 +278,36 @@ elif page == "ライブスケジュール":
     # ライブ総時間（時間）
     live_hours = st.number_input("ライブ総時間 (時間)", min_value=4, max_value=12, value=4)
 
-    # 演奏時間と転換時間（5分刻み）
-    band_time = st.slider("1バンドの演奏時間 (分)", 10, 30, 20, step=5)
-    change_time = st.slider("バンド間の転換時間 (分)", 5, 20, 10, step=5)
+    # 開始時刻
+    start_time_input = st.time_input("ライブ開始時刻", value=datetime.strptime("18:00", "%H:%M").time())
+    start_time = datetime.combine(datetime.today(), start_time_input)
+
+    # 演奏時間・転換時間
+    band_time = st.number_input("1バンドの演奏時間 (分)", min_value=5, max_value=60, value=20, step=5)
+    change_time = st.number_input("バンド間の転換時間 (分)", min_value=5, max_value=30, value=10, step=5)
 
     # バンド名入力
     bands_input = st.text_area("バンド名を改行で入力", value="Band A\nBand B\nBand C")
     bands = [b.strip() for b in bands_input.split("\n") if b.strip()]
     random.shuffle(bands)
 
-    # 開始時間を仮に18:00に設定
-    start_time = datetime.strptime("18:00", "%H:%M")
     schedule = []
 
     # 集合スケジュール
-    schedule.append({"項目": "幹部その他集合", "開始": start_time.strftime("%H:%M"), "終了": (start_time + timedelta(minutes=30)).strftime("%H:%M")})
-    schedule.append({"項目": "参加者全員集合", "開始": (start_time + timedelta(minutes=30)).strftime("%H:%M"), "終了": (start_time + timedelta(minutes=60)).strftime("%H:%M")})
+    schedule.append({"項目": "幹部その他集合",
+                     "開始": start_time.strftime("%H:%M"),
+                     "終了": (start_time + timedelta(minutes=30)).strftime("%H:%M")})
+    schedule.append({"項目": "参加者全員集合",
+                     "開始": (start_time + timedelta(minutes=30)).strftime("%H:%M"),
+                     "終了": (start_time + timedelta(minutes=60)).strftime("%H:%M")})
 
-    current_time = start_time + timedelta(minutes=60)  # バンド開始時間
+    current_time = start_time + timedelta(minutes=60)  # バンド開始
     total_minutes = live_hours * 60 - 60  # 集合時間を引いた残り時間
 
     for i, band in enumerate(bands):
-        # バンド演奏
         if total_minutes < band_time:
             break
+        # バンド演奏
         start = current_time
         end = start + timedelta(minutes=band_time)
         schedule.append({"項目": band, "開始": start.strftime("%H:%M"), "終了": end.strftime("%H:%M")})
@@ -318,7 +324,9 @@ elif page == "ライブスケジュール":
 
     # 撤収
     if total_minutes > 0:
-        schedule.append({"項目": "撤収", "開始": current_time.strftime("%H:%M"), "終了": (current_time + timedelta(minutes=total_minutes)).strftime("%H:%M")})
+        schedule.append({"項目": "撤収",
+                         "開始": current_time.strftime("%H:%M"),
+                         "終了": (current_time + timedelta(minutes=total_minutes)).strftime("%H:%M")})
 
     st.subheader("🎵 スケジュール表")
     st.table(pd.DataFrame(schedule))
