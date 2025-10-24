@@ -175,10 +175,6 @@ if page == "バンド作成":
     )
     df_display = sort_members(st.session_state.members_df, sort_option)
 
-    # 選択人数表示
-    total_selected = sum(st.session_state.selected.values())
-    st.markdown(f"### ✅ 現在の選択人数：{total_selected}人")
-
     # チェックボックス表示（3列）
     def display_members(df_group):
         cols = st.columns(3)
@@ -199,6 +195,10 @@ if page == "バンド作成":
             display_members(group)
     else:
         display_members(df_display)
+
+    # 選択人数表示
+    total_selected = sum(st.session_state.selected.values())
+    st.markdown(f"### ✅ 現在の選択人数：{total_selected}人")
 
     # バンド作成ボタン
     if st.button("🎵 バンド作成"):
