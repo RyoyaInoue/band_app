@@ -234,14 +234,37 @@ elif page == "ライブハウス予約・料金計算":
     livehouses = ["CLUB GATE", "Shibuya Milkyway", "難波ロケッツ"]
     selected_house = st.selectbox("ライブハウスを選択", livehouses)
 
-    day_options = ["平日", "土曜", "日曜"]
+    day_options = ["月〜木/平日", "金・日・祝", "土・祝前休日"]
     selected_day = st.selectbox("日程を選択", day_options)
 
-    hours = st.number_input("利用時間（時間）", min_value=1, max_value=12, value=2)
+    hours = st.number_input("利用時間（時間）", min_value=4, max_value=12, value=4, step=1)
 
-    # 簡易料金計算
-    base_price = 20000  # 平日基本料金
-    if selected_day in ["土曜", "日曜"]:
-        base_price = int(base_price * 1.5)
-    total_price = base_price * hours
-    st.markdown(f"### 💰 合計料金: {total_price}円")
+    use_dressing_room = st.checkbox("楽屋使用 (2F別室, 10,000円 税別)")
+
+    # 基本料金設定（4時間・8時間）
+    if selected_day == "月〜木/平日":
+        price_4h, price_8h = 45000, 80000
+    elif selected_day == "金・日・祝":
+        price_4h, price_8h = 55000, 100000
+    else:  # 土・祝前休日
+        price_4h, price_8h = 65000, 120000
+
+    # 時間に応じた料金計算
+    if hours <= 4:
+        total_price = price_4h
+    elif hours <= 8:
+        total_price = price_4h + (price_8h - price_4h) * ((hours - 4) / 4)
+    else:
+        total_price = price_8h + (price_8h - price_4h) / 4 * (hours - 8)
+
+    # 楽屋使用料追加
+    if use_dressing_room:
+        total_price += 10000
+
+    # 税込計算（10%）
+    tax_rate = 0.1
+    total_price_incl_tax = int(total_price * (1 + tax_rate))
+
+    st.markdown(f"### 💰 合計料金（税別）: {int(total_price):,}円")
+    st.markdown(f"### 💴 合計料金（税込10%）: {total_price_incl_tax:,}円")
+
