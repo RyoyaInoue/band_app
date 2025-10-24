@@ -5,9 +5,9 @@ from collections import defaultdict
 from io import BytesIO
 import string
 
-# -------------------------------
-# 初期データ
-# -------------------------------
+# ===============================================================
+# 初期データの準備
+# ===============================================================
 if "members_df" not in st.session_state:
     members_list = [
             {"名前":"祐太","パート":"Vo","学年":4,"経験レベル":"上級"},
@@ -86,101 +86,126 @@ if "members_df" not in st.session_state:
         ]
     st.session_state.members_df = pd.DataFrame(members_list)
     st.session_state.selected = {idx: False for idx in range(len(members_list))}
+    st.session_state.bands_result = []
 
-# -------------------------------
+# ===============================================================
 # サイドバーでページ選択
-# -------------------------------
+# ===============================================================
 st.sidebar.title("ページ選択")
 page = st.sidebar.radio("ページ", ["バンド作成", "ライブハウス予約・料金計算"])
 
-# -------------------------------
+# ===============================================================
+# 並び替え関数
+# ===============================================================
+def sort_members(df, option):
+    df_sorted = df.copy()
+    if option == "パート順":
+        df_sorted = df_sorted.sort_values(by=["パート", "名前"])
+    elif option == "学年順":
+        df_sorted = df_sorted.sort_values(by=["学年", "名前"])
+    elif option == "経験レベル順":
+        level_order = {"初級": 0, "中級": 1, "上級": 2}
+        df_sorted["経験値"] = df_sorted["経験レベル"].map(level_order)
+        df_sorted = df_sorted.sort_values(by=["経験値", "名前"]).drop(columns=["経験値"])
+    return df_sorted
+
+# ===============================================================
+# バンド作成関数
+# ===============================================================
+def create_bands(df, selected):
+    selected_members = df[[selected[i] for i in df.index]].copy()
+    if selected_members.empty:
+        st.warning("参加者が選択されていません")
+        return []
+
+    max_per_band = {"Ba": 2, "Dr": 2}
+    parts = defaultdict(list)
+    for _, row in selected_members.iterrows():
+        parts[row["パート"]].append(row)
+
+    # バンド数をパートごとに計算
+    band_counts = []
+    for part_name, members_list in parts.items():
+        if part_name in max_per_band:
+            band_counts.append((len(members_list) + max_per_band[part_name] - 1) // max_per_band[part_name])
+        else:
+            band_counts.append(len(members_list))
+    num_bands = min(band_counts) if band_counts else 1
+    bands = [defaultdict(list) for _ in range(num_bands)]
+
+    # パートごとにバンドに振り分け
+    for part_name, members_list in parts.items():
+        # 経験順でシャッフル
+        if part_name in ["Gt", "Ba", "Dr"]:
+            high = [m for m in members_list if m["経験レベル"] == "上級"]
+            mid = [m for m in members_list if m["経験レベル"] == "中級"]
+            low = [m for m in members_list if m["経験レベル"] == "初級"]
+            random.shuffle(high); random.shuffle(mid); random.shuffle(low)
+            members_sorted = high + mid + low
+        else:
+            members_sorted = members_list.copy()
+            random.shuffle(members_sorted)
+
+        band_idx = 0
+        for member in members_sorted:
+            attempts = 0
+            while attempts < num_bands:
+                if part_name in max_per_band and len(bands[band_idx][part_name]) >= max_per_band[part_name]:
+                    band_idx = (band_idx + 1) % num_bands
+                    attempts += 1
+                else:
+                    bands[band_idx][part_name].append(member["名前"])
+                    band_idx = (band_idx + 1) % num_bands
+                    break
+            else:
+                bands[0][part_name].append(member["名前"])
+    return bands
+
+# ===============================================================
 # バンド作成ページ
-# -------------------------------
+# ===============================================================
 if page == "バンド作成":
     st.title("🎸 バンド作成アプリ")
 
-    df = st.session_state.members_df.copy()
-    experience_order = {"初級": 1, "中級": 2, "上級": 3}
-    df["経験順"] = df["経験レベル"].map(experience_order)
+    # 並び替えオプション
+    sort_option = st.selectbox(
+        "並び替え",
+        ["一覧", "パート順", "学年順", "経験レベル順"],
+        index=2
+    )
+    df_display = sort_members(st.session_state.members_df, sort_option)
 
-    # 学年順・経験順・パート順で表示
-    df_sorted = df.sort_values(by=["学年", "経験順", "パート"], ascending=[True, False, True]).reset_index(drop=True)
-
-    st.subheader("🎤 参加者リスト（学年・経験・パート順）")
-    cols = st.columns(3)
-    for i, row in df_sorted.iterrows():
-        col_idx = i % 3
-        key = f"chk_{row['名前']}"
-        st.session_state.selected[row.name] = cols[col_idx].checkbox(
-            f"{row['名前']}（{row['パート']}・{row['学年']}年・{row['経験レベル']}）",
-            value=st.session_state.selected.get(row.name, False),
-            key=key
-        )
+    # 選択人数表示
     total_selected = sum(st.session_state.selected.values())
-    st.markdown(f"### ✅ 選択人数：{total_selected}人")
+    st.markdown(f"### ✅ 現在の選択人数：{total_selected}人")
 
-    # -------------------------------
-    # バンド作成関数
-    # -------------------------------
-    def create_bands(df, selected):
-        selected_members = df[[selected[i] for i in df.index]].copy()
-        if selected_members.empty:
-            st.warning("参加者が選択されていません")
-            return None
+    # チェックボックス表示（3列）
+    def display_members(df_group):
+        cols = st.columns(3)
+        for i, (_, row) in enumerate(df_group.iterrows()):
+            col_idx = i % 3
+            checkbox_key = f"chk_{row.name}"
+            st.session_state.selected[row.name] = cols[col_idx].checkbox(
+                f"{row['名前']}（{row['パート']}・{row['学年']}年・{row['経験レベル']}）",
+                value=st.session_state.selected[row.name],
+                key=checkbox_key
+            )
 
-        max_per_band = {"Ba": 2, "Dr": 2}
-        parts = defaultdict(list)
-        for _, row in selected_members.iterrows():
-            parts[row["パート"]].append(row)
+    if sort_option in ["学年順", "パート順", "経験レベル順"]:
+        group_key = {"学年順": "学年", "パート順": "パート", "経験レベル順": "経験レベル"}[sort_option]
+        group_label = {"学年": "🎓", "パート": "🎶", "経験レベル": "⭐"}[group_key]
+        for key_value, group in df_display.groupby(group_key):
+            st.markdown(f"#### {group_label} {key_value}")
+            display_members(group)
+    else:
+        display_members(df_display)
 
-        # バンド数の計算
-        band_counts = []
-        for part_name, members_list in parts.items():
-            if part_name in max_per_band:
-                band_counts.append((len(members_list) + max_per_band[part_name] - 1) // max_per_band[part_name])
-            else:
-                band_counts.append(len(members_list))
-        num_bands = min(band_counts)
-        bands = [defaultdict(list) for _ in range(num_bands)]
-
-        # 各パートをバンドに割り振り
-        for part_name, members_list in parts.items():
-            # 経験順でシャッフル
-            if part_name in ["Gt", "Ba", "Dr"]:
-                high = [m for m in members_list if m["経験レベル"] == "上級"]
-                mid = [m for m in members_list if m["経験レベル"] == "中級"]
-                low = [m for m in members_list if m["経験レベル"] == "初級"]
-                random.shuffle(high); random.shuffle(mid); random.shuffle(low)
-                members_sorted = high + mid + low
-            else:
-                members_sorted = members_list.copy()
-                random.shuffle(members_sorted)
-
-            band_idx = 0
-            for member in members_sorted:
-                attempts = 0
-                while attempts < num_bands:
-                    if part_name in max_per_band and len(bands[band_idx][part_name]) >= max_per_band[part_name]:
-                        band_idx = (band_idx + 1) % num_bands
-                        attempts += 1
-                    else:
-                        bands[band_idx][part_name].append(member["名前"])
-                        band_idx = (band_idx + 1) % num_bands
-                        break
-                else:
-                    bands[0][part_name].append(member["名前"])
-        return bands
-
-    # -------------------------------
-    # バンド作成トリガー
-    # -------------------------------
+    # バンド作成ボタン
     if st.button("🎵 バンド作成"):
-        bands_result = create_bands(st.session_state.members_df, st.session_state.selected)
-        if bands_result:
-            st.session_state.bands_result = bands_result
+        st.session_state.bands_result = create_bands(st.session_state.members_df, st.session_state.selected)
 
-    # 結果表示
-    if "bands_result" in st.session_state and st.session_state.bands_result:
+    # バンド結果表示
+    if st.session_state.bands_result:
         st.subheader("🎶 バンド分け結果")
         result_df = pd.DataFrame(columns=["Vo", "Gt", "Ba", "Dr", "Key"])
         for i, band in enumerate(st.session_state.bands_result):
@@ -197,12 +222,12 @@ if page == "バンド作成":
             "Excel ダウンロード",
             data=towrite,
             file_name="bands.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 
-# -------------------------------
+# ===============================================================
 # ライブハウス予約・料金計算ページ
-# -------------------------------
+# ===============================================================
 elif page == "ライブハウス予約・料金計算":
     st.title("🎤 ライブハウス予約・料金計算")
 
