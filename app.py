@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import random
 from collections import defaultdict
 from io import BytesIO
@@ -405,6 +406,18 @@ elif page == "ライブスケジュール":
     band_change_minutes = st.number_input("バンド転換時間（分）", value=5, min_value=0)
     live_total_hours = st.number_input("ライブ全体の所要時間（時間）", value=4, min_value=1)
 
+
+    def highlight_consecutive(df):
+        # メンバーが prev_members に含まれていたら色付け
+        def highlight_cell(val):
+            if not isinstance(val, str) or not val:
+                return ""
+            members = [m.strip("★") for m in val.split(",")]
+            if any(m in highlight_consecutive.prev_members for m in members):
+                return "background-color: #FFD700"  # 黄色
+            return ""
+        return df.applymap(highlight_cell)
+
     # ===============================
     # スケジュール作成関数（連続出演調整付き）
     # ===============================
@@ -445,7 +458,6 @@ elif page == "ライブスケジュール":
                             conflict = True
                             break
 
-                # 残りバンドが少なければ強制配置
                 if conflict and len(bands) <= 2:
                     conflict = False
 
@@ -462,13 +474,14 @@ elif page == "ライブスケジュール":
                 if len(last_two_members) > 2:
                     last_two_members.pop(0)
 
-        # スケジュール表作成（★マーク付き）
+        # スケジュール作成
         prev_members = set()
+        rows = []
         for idx, b in enumerate(scheduled_bands):
             if b is None:
                 if idx < len(scheduled_bands) - 1:
                     end_change = current_time + timedelta(minutes=band_change_minutes)
-                    schedule.append({
+                    rows.append({
                         "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
                         "項目": "転換",
                         "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
@@ -483,21 +496,18 @@ elif page == "ライブスケジュール":
             }
 
             for part in parts:
-                members_marked = []
-                for m in b["メンバー"].get(part, []):
-                    if m in prev_members:
-                        members_marked.append(f"{m}★")
-                    else:
-                        members_marked.append(m)
-                row[part] = ", ".join(members_marked)
-
-            schedule.append(row)
+                members = b["メンバー"].get(part, [])
+                # prev_members に含まれている場合は黄色にするためのマーク
+                member_str = ", ".join(members)
+                row[part] = member_str
+            rows.append(row)
             prev_members = set(sum([b["メンバー"].get(part, []) for part in parts], []))
+            highlight_consecutive.prev_members = prev_members  # style用に保存
             current_time = end_band
 
             if idx < len(scheduled_bands) - 1:
                 end_change = current_time + timedelta(minutes=band_change_minutes)
-                schedule.append({
+                rows.append({
                     "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
                     "項目": "転換",
                     "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
@@ -506,15 +516,14 @@ elif page == "ライブスケジュール":
 
         # 撤収
         end_time_dt = start_dt + timedelta(hours=live_total_hours)
-        schedule.append({
+        rows.append({
             "時間": f"{current_time.strftime('%H:%M')}〜{end_time_dt.strftime('%H:%M')}",
             "項目":"撤収",
             "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
         })
 
-        return pd.DataFrame(schedule)
-
-
+        df_schedule = pd.DataFrame(rows)
+        return df_schedule.style.apply(highlight_consecutive)
 
 
     # ===============================
