@@ -275,6 +275,10 @@ elif page == "ライブハウス予約・料金計算":
 elif page == "ライブスケジュール":
     st.title("ライブスケジュール作成（手動バンド登録）")
 
+    import pandas as pd
+    from datetime import datetime, timedelta
+    from io import BytesIO
+
     # ---------------------------------
     # メンバー情報の取得
     # ---------------------------------
@@ -282,7 +286,8 @@ elif page == "ライブスケジュール":
         df_members = st.session_state.members_df.copy()
     else:
         df_members = pd.DataFrame(columns=["名前", "学年", "経験", "パート"])
-    parts = ["Vo","Gt","Ba","Dr","Key"]
+
+    parts = ["Vo", "Gt", "Ba", "Dr", "Key"]
 
     # ===============================
     # セッションステート初期化
@@ -300,15 +305,47 @@ elif page == "ライブスケジュール":
         st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
 
     # ===============================
+    # 入力リセット用関数
+    # ===============================
+    def reset_band_inputs():
+        st.session_state["band_name_input"] = ""
+        st.session_state["selected_members_input"] = {part: [] for part in parts}
+        st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
+
+    # ===============================
+    # バンド追加用関数
+    # ===============================
+    def add_band():
+        band_name = st.session_state["band_name_input"]
+        selected_members = st.session_state["selected_members_input"]
+        if not band_name:
+            st.warning("バンド名を入力してください")
+            return
+        st.session_state["bands_manual"].append({
+            "バンド名": band_name,
+            "メンバー": selected_members
+        })
+        st.success(f"{band_name} を追加しました")
+        reset_band_inputs()
+
+    # ===============================
+    # バンド削除用関数
+    # ===============================
+    def delete_band(idx):
+        st.session_state["bands_manual"].pop(idx)
+
+    # ===============================
     # バンド登録UI
     # ===============================
     st.markdown("### バンド登録（複数パートの割り当て可能）")
     with st.container():
+        # バンド名入力
         band_name = st.text_input(
             "バンド名",
             value=st.session_state["band_name_input"],
             key="band_name_input_display"
         )
+        st.session_state["band_name_input"] = band_name
 
         # 選択されたメンバーを保持する辞書
         selected_members = {}
@@ -334,7 +371,7 @@ elif page == "ライブスケジュール":
                     members_for_assign += df_members[df_members["パート"] == p]["名前"].tolist()
                 members_for_assign = list(dict.fromkeys(members_for_assign))  # 重複除去
 
-                # メンバー選択（初期値は空にして常に最新メンバーを表示）
+                # メンバー選択
                 selected = st.multiselect(
                     "メンバー選択",
                     options=members_for_assign,
@@ -343,36 +380,10 @@ elif page == "ライブスケジュール":
                 )
                 selected_members[part] = selected
 
-        # ===============================
-        # 入力リセット用関数
-        # ===============================
-        def reset_band_inputs():
-            st.session_state["band_name_input"] = ""
-            st.session_state["selected_members_input"] = {part: [] for part in parts}
-            st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
+        st.session_state["selected_members_input"] = selected_members
 
-        # ===============================
-        # バンド追加用関数
-        # ===============================
-        def add_band():
-            band_name = st.session_state["band_name_input"]
-            selected_members = st.session_state["selected_members_input"]
-            if not band_name:
-                st.warning("バンド名を入力してください")
-                return
-            st.session_state["bands_manual"].append({
-                "バンド名": band_name,
-                "メンバー": selected_members
-            })
-            st.success(f"{band_name} を追加しました")
-            reset_band_inputs()
-
-        # ===============================
         # バンド追加ボタン
-        # ===============================
         st.button("バンドを追加", on_click=add_band)
-
-
 
     # ===============================
     # 登録済みバンド表示と削除
@@ -387,9 +398,7 @@ elif page == "ライブスケジュール":
                 band_table = pd.DataFrame.from_dict(member_str_dict, orient="index", columns=["メンバー"])
                 st.dataframe(band_table, use_container_width=True, height=len(band_table)*35 + 35)
             with cols[1]:
-                if st.button("削除", key=f"del_{idx}"):
-                    st.session_state["bands_manual"].pop(idx)
-                    st.experimental_rerun()
+                st.button("削除", key=f"del_{idx}", on_click=delete_band, args=(idx,))
 
     # ===============================
     # スケジュール作成関数
