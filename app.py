@@ -194,14 +194,32 @@ if page == "バンド作成":
 # 出演バンド選考ページ
 # -------------------------------
 elif page == "出演バンド選考・演奏順管理":
-    st.title("出演バンド選考・演奏順管理")
-    st.write("ここでは出演バンドの選考や演奏順を管理できます。")
+    st.title("🎤 ライブハウス予約・料金計算")
 
-    bands = ["SoundEnergy", "EchoWave", "Midnight Cats", "Rising Sun"]
-    selected = st.multiselect("出演バンドを選択", bands)
+    # --- ライブハウス選択 ---
+    livehouses = ["CLUB GATE"]
+    selected_house = st.selectbox("ライブハウスを選択", livehouses)
 
-    if selected:
-        st.write("選ばれたバンド：", selected)
+    # --- 日程選択 ---
+    day_options = ["平日", "土曜", "日曜"]
+    selected_day = st.selectbox("日程を選択", day_options)
 
-    order = st.number_input("演奏順（1〜）", min_value=1, max_value=len(bands))
-    st.write(f"設定された演奏順: {order}")
+    # --- 利用時間選択 ---
+    hours = st.number_input("利用時間（時間）", min_value=1, max_value=12, value=2)
+
+    # --- 料金計算 ---
+    # 仮の料金設定
+    base_price = 30000  # 平日1時間あたり
+    if selected_day == "平日":
+        price_per_hour = base_price
+    elif selected_day == "土曜":
+        price_per_hour = int(base_price * 1.5)
+    else:  # 日曜
+        price_per_hour = int(base_price * 2)
+
+    total_price = price_per_hour * hours
+    st.subheader("料金計算結果")
+    st.write(f"選択されたライブハウス: {selected_house}")
+    st.write(f"日程: {selected_day}")
+    st.write(f"利用時間: {hours}時間")
+    st.write(f"合計料金: {total_price:,}円")
