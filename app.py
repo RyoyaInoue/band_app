@@ -302,21 +302,14 @@ elif page == "ライブスケジュール":
     st.subheader("バンド登録")
     with st.form("add_band_form", clear_on_submit=True):
         band_name = st.text_input("バンド名")
-        
-        selected_members = {part: [] for part in parts}  # 初期化
 
-        # ① パートを選ぶラジオボタン
-        selected_part = st.radio("割り当てたいパートを選択", options=parts, horizontal=True)
+        selected_members = {}  # 各パートの選択メンバーを格納する辞書
+        for part in parts:
+            # 各パートに所属する人を抽出
+            members_for_part = df_members["名前"].tolist()  # 全メンバーから選択可能にする
+            selected_for_part = st.multiselect(f"{part}に割り当てるメンバー", options=members_for_part)
+            selected_members[part] = selected_for_part
 
-        # ② 選んだパートのメンバーをマルチセレクトで選択
-        members_for_selected_part = df_members["名前"].tolist()  # すべてのメンバーから選択
-        selected_for_part = st.multiselect(
-            f"{selected_part}に割り当てるメンバーを選択",
-            options=members_for_selected_part
-        )
-        selected_members[selected_part] = selected_for_part  # 辞書に保存
-
-        # ③ 送信ボタンでバンドに登録
         submitted = st.form_submit_button("バンドを追加")
         if submitted:
             if not band_name:
