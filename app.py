@@ -445,6 +445,10 @@ elif page == "ライブスケジュール":
                             conflict = True
                             break
 
+                # **残りバンドが少なければ強制配置**
+                if conflict and len(bands) <= 2:
+                    conflict = False
+
                 if not conflict:
                     scheduled_bands.append(b)
                     last_two_members.append(all_members)
@@ -453,18 +457,16 @@ elif page == "ライブスケジュール":
                     bands.pop(i)
                     break
             else:
-                # 最後のバンドだけなら転換を入れずに強制挿入をスキップ
-                if bands:
-                    # 全候補が3連続制約に引っかかった場合だけ空転換
-                    scheduled_bands.append(None)
-                    last_two_members.append([])
-                    if len(last_two_members) > 2:
-                        last_two_members.pop(0)
+                # 本来なら None で転換を入れるところだが、もうバンド数が少ない場合はスキップ
+                scheduled_bands.append(None)
+                last_two_members.append([])
+                if len(last_two_members) > 2:
+                    last_two_members.pop(0)
 
         # スケジュール表作成
         for idx, b in enumerate(scheduled_bands):
             if b is None:
-                # 強制転換（最後の要素ではない場合のみ）
+                # 転換は次のバンドがある場合のみ
                 if idx < len(scheduled_bands) - 1:
                     end_change = current_time + timedelta(minutes=band_change_minutes)
                     schedule.append({
@@ -475,7 +477,7 @@ elif page == "ライブスケジュール":
                     current_time = end_change
                 continue
 
-            # 演奏
+            # バンド演奏
             end_band = current_time + timedelta(minutes=band_play_minutes)
             row = {
                 "時間": f"{current_time.strftime('%H:%M')}〜{end_band.strftime('%H:%M')}",
@@ -486,14 +488,15 @@ elif page == "ライブスケジュール":
             schedule.append(row)
             current_time = end_band
 
-            # 転換
-            end_change = current_time + timedelta(minutes=band_change_minutes)
-            schedule.append({
-                "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
-                "項目": "転換",
-                "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
-            })
-            current_time = end_change
+            # 転換は次のバンドがある場合のみ1回
+            if idx < len(scheduled_bands) - 1:
+                end_change = current_time + timedelta(minutes=band_change_minutes)
+                schedule.append({
+                    "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
+                    "項目": "転換",
+                    "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
+                })
+                current_time = end_change
 
         # 撤収
         end_time_dt = start_dt + timedelta(hours=live_total_hours)
@@ -504,6 +507,7 @@ elif page == "ライブスケジュール":
         })
 
         return pd.DataFrame(schedule)
+
 
 
     # ===============================
