@@ -323,17 +323,19 @@ elif page == "ライブスケジュール":
     # 登録済みバンド表示と削除
     # ===============================
     if st.session_state.bands_manual:
-        st.subheader("登録済みバンド")
+        st.subheader("登録済みバンド一覧")
         for idx, b in enumerate(st.session_state.bands_manual):
-            cols = st.columns([4,1])
+            cols = st.columns([4, 1])
             with cols[0]:
-                st.write(f"**{b['バンド名']}**")
-                for part, members_list in b["メンバー"].items():
-                    st.write(f"{part}: {', '.join(members_list) if members_list else '（空き）'}")
+                st.markdown(f"**🎸 {b['バンド名']}**")
+                # 表形式で表示
+                band_table = pd.DataFrame.from_dict(b["メンバー"], orient="index", columns=["メンバー"])
+                st.table(band_table)
             with cols[1]:
                 if st.button("削除", key=f"del_{idx}"):
                     st.session_state.bands_manual.pop(idx)
-                    st.experimental_rerun()  # 削除後に再描画
+                    st.experimental_rerun()
+
 
     # ===============================
     # スケジュール作成
@@ -382,7 +384,7 @@ elif page == "ライブスケジュール":
         else:
             schedule_df = create_schedule_manual()
             st.subheader("ライブスケジュール")
-            st.dataframe(schedule_df, use_container_width=True)
+            st.dataframe(schedule_df, use_container_width=True, height=600)
 
             # Excelダウンロード
             towrite = BytesIO()
