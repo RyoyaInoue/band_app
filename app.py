@@ -301,23 +301,27 @@ elif page == "ライブスケジュール":
     # 閉じられない枠でバンド登録をまとめる
     st.markdown("### バンド登録")
     with st.container():
-        # セッションステートで一時保存用
+        # 入力状態の初期化
         if "band_name_input" not in st.session_state:
             st.session_state.band_name_input = ""
         if "selected_members_input" not in st.session_state:
             st.session_state.selected_members_input = {part: [] for part in parts}
 
         # バンド名入力
-        band_name = st.text_input("バンド名", value=st.session_state.band_name_input, key="band_name_input")
+        band_name = st.text_input(
+            "バンド名", 
+            value=st.session_state.band_name_input,
+            key="band_name_input"
+        )
 
         # 選択されたメンバーを保持する辞書
         selected_members = {}
 
-        # パートごとに横並びで割り当てUIを作成
+        # パートごとに横並びで割り当てUI
         cols = st.columns(len(parts))
         for i, part in enumerate(parts):
             with cols[i]:
-                st.markdown(f"**{part}枠**", unsafe_allow_html=True)
+                st.markdown(f"**{part}枠**")
                 
                 # 初期値はその枠のパート
                 assign_part = st.selectbox(
@@ -327,7 +331,7 @@ elif page == "ライブスケジュール":
                     key=f"{part}_assign_part"
                 )
                 
-                # 選択されたパートのメンバーのみ表示
+                # 選択されたパートのメンバーだけ表示
                 members_for_assign = df_members[df_members["パート"] == assign_part]["名前"].tolist()
                 selected = st.multiselect(
                     "",
@@ -350,9 +354,9 @@ elif page == "ライブスケジュール":
                 })
                 st.success(f"{band_name} を追加しました")
                 
-                # 入力欄をリセットするためにフォームを再描画
-                st.experimental_rerun()
-
+                # 入力欄をリセット（フォームを再描画せずセッションステートで管理）
+                st.session_state.band_name_input = ""
+                st.session_state.selected_members_input = {part: [] for part in parts}
 
 
 
