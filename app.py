@@ -350,11 +350,8 @@ elif page == "ライブスケジュール":
                 })
                 st.success(f"{band_name} を追加しました")
                 
-                # 入力欄をリセット
-                st.session_state.band_name_input = ""
-                st.session_state.selected_members_input = {part: [] for part in parts}
-                for part in parts:
-                    st.session_state[f"{part}_select"] = []
+                # 入力欄をリセットするためにフォームを再描画
+                st.experimental_rerun()
 
 
 
