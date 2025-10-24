@@ -91,6 +91,7 @@ if "members_df" not in st.session_state:
     st.session_state.members_df = pd.DataFrame(members_list)
     st.session_state.selected = {idx: False for idx in range(len(members_list))}
     st.session_state.bands_result = []
+    st.session_state.bands_manual = []
 
 # ===============================================================
 # サイドバーでページ選択
@@ -218,16 +219,12 @@ if page == "バンド作成":
             result_df.loc[band_label] = row
         st.table(result_df)
 
-        # Excelダウンロード
-        towrite = BytesIO()
-        result_df.to_excel(towrite, index=True, sheet_name="Bands", engine="openpyxl")
-        towrite.seek(0)
-        st.download_button(
-            "Excel ダウンロード",
-            data=towrite,
-            file_name="bands.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        if st.button("このバンドをライブスケジュールに追加"):
+            for i, band in enumerate(st.session_state.bands_result):
+                band_name = "Band " + string.ascii_uppercase[i]
+                st.session_state.bands_manual.append({"バンド名": band_name, "メンバー": band})
+            st.success("ライブスケジュールページに追加しました！")
+
 
 # ===============================================================
 # ライブハウス予約・料金計算ページ
@@ -278,7 +275,13 @@ elif page == "ライブハウス予約・料金計算":
 elif page == "ライブスケジュール":
     st.title("ライブスケジュール作成（手動バンド登録）")
 
-    df_members = st.session_state.members_df.copy()
+    # ---------------------------------
+    # メンバー情報の取得
+    # ---------------------------------
+    if "members_df" in st.session_state:
+        df_members = st.session_state.members_df.copy()
+    else:
+        df_members = pd.DataFrame(columns=["名前", "学年", "経験", "パート"])
     member_names = df_members["名前"].tolist()
     parts = ["Vo","Gt","Ba","Dr","Key"]
 
