@@ -343,7 +343,17 @@ elif page == "ライブスケジュール":
                 )
                 selected_members[part] = selected
 
+        # ===============================
+        # 入力リセット用関数
+        # ===============================
+        def reset_band_inputs():
+            st.session_state["band_name_input"] = ""
+            st.session_state["selected_members_input"] = {part: [] for part in parts}
+            st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
+
+        # ===============================
         # バンド追加ボタン
+        # ===============================
         if st.button("バンドを追加"):
             if not band_name:
                 st.warning("バンド名を入力してください")
@@ -354,12 +364,10 @@ elif page == "ライブスケジュール":
                 })
                 st.success(f"{band_name} を追加しました")
 
-                # 安全に入力欄をリセット
-                st.session_state["band_name_input"] = ""
-                st.session_state["selected_members_input"] = {part: [] for part in parts}
-                st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
-
+                # 入力リセットして rerun
+                reset_band_inputs()
                 st.experimental_rerun()
+
 
     # ===============================
     # 登録済みバンド表示と削除
