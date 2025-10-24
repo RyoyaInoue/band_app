@@ -328,8 +328,10 @@ elif page == "ライブスケジュール":
             cols = st.columns([4, 1])
             with cols[0]:
                 st.markdown(f"**🎸 {b['バンド名']}**")
-                # 表形式で表示
-                band_table = pd.DataFrame.from_dict(b["メンバー"], orient="index", columns=["メンバー"])
+                # リストを文字列に変換して表形式表示
+                member_str_dict = {part: ", ".join(members) if members else "（空き）" 
+                                for part, members in b["メンバー"].items()}
+                band_table = pd.DataFrame.from_dict(member_str_dict, orient="index", columns=["メンバー"])
                 st.table(band_table)
             with cols[1]:
                 if st.button("削除", key=f"del_{idx}"):
