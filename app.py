@@ -275,23 +275,27 @@ elif page == "ライブハウス予約・料金計算":
 elif page == "ライブスケジュール":
     st.title("ライブスケジュール作成（手動バンド登録）")
 
-    # ライブ情報設定
-    live_total_hours = st.number_input("ライブ総時間（時間）", min_value=1, value=8)
-    start_hour = st.number_input("ライブ開始時刻（時）", min_value=0, max_value=23, value=10)
-    start_minute = st.number_input("ライブ開始時刻（分）", min_value=0, max_value=59, value=0)
-    band_play_minutes = st.number_input("1バンド演奏時間（分）", min_value=5, value=20)
-    band_change_minutes = st.number_input("転換時間（分）", min_value=1, value=5)
-
     df_members = st.session_state.members_df.copy()
     member_names = df_members["名前"].tolist()
     parts = ["Vo","Gt","Ba","Dr","Key"]
 
+    # ===============================
+    # ライブ情報
+    # ===============================
+    live_total_hours = st.number_input("ライブ総時間（時間）", min_value=1, value=8)
+    start_time = st.time_input("ライブ開始時刻", value=datetime(2025,1,1,10,0).time())
+    band_play_minutes = st.number_input("1バンド演奏時間（分）", min_value=5, value=20)
+    band_change_minutes = st.number_input("転換時間（分）", min_value=1, value=5)
+
+    # ===============================
+    # バンド管理
+    # ===============================
     if "bands_manual" not in st.session_state:
         st.session_state.bands_manual = []
 
     st.subheader("バンド登録")
     with st.form("add_band_form"):
-        band_name = st.text_input("バンド名")
+        band_name = st.text_input("バンド名")  # Enter 押しても即登録されない
         selected_members = {}
         for part in parts:
             names_for_part = df_members[df_members["パート"]==part]["名前"].tolist()
@@ -309,23 +313,33 @@ elif page == "ライブスケジュール":
                 })
                 st.success(f"{band_name} を追加しました")
 
-    # 登録済みバンドの表示
+    # ===============================
+    # 登録済みバンド表示と削除
+    # ===============================
     if st.session_state.bands_manual:
         st.subheader("登録済みバンド")
-        for b in st.session_state.bands_manual:
-            st.write(f"**{b['バンド名']}**")
-            for part, members_list in b["メンバー"].items():
-                st.write(f"{part}: {', '.join(members_list) if members_list else '（空き）'}")
+        for idx, b in enumerate(st.session_state.bands_manual):
+            cols = st.columns([4,1])
+            with cols[0]:
+                st.write(f"**{b['バンド名']}**")
+                for part, members_list in b["メンバー"].items():
+                    st.write(f"{part}: {', '.join(members_list) if members_list else '（空き）'}")
+            with cols[1]:
+                if st.button("削除", key=f"del_{idx}"):
+                    st.session_state.bands_manual.pop(idx)
+                    st.experimental_rerun()  # 削除後に再描画
 
+    # ===============================
     # スケジュール作成
+    # ===============================
     def create_schedule_manual():
         schedule = []
-        start_time = datetime(2025,1,1,start_hour,start_minute)
+        start_dt = datetime.combine(datetime.today(), start_time)
         # 幹部その他集合
-        schedule.append({"時間":"10:00〜10:30","項目":"幹部その他集合"})
+        schedule.append({"時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"), "項目":"幹部その他集合"})
         # 参加者全員集合
-        schedule.append({"時間":"10:30〜11:00","項目":"参加者全員集合"})
-        current_time = start_time + timedelta(minutes=60)
+        schedule.append({"時間": (start_dt+timedelta(minutes=30)).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=60)).strftime("%H:%M"), "項目":"参加者全員集合"})
+        current_time = start_dt + timedelta(minutes=60)
 
         for b in st.session_state.bands_manual:
             end_band = current_time + timedelta(minutes=band_play_minutes)
@@ -348,7 +362,7 @@ elif page == "ライブスケジュール":
             current_time = end_change
 
         # 撤収
-        end_time = start_time + timedelta(hours=live_total_hours)
+        end_time = start_dt + timedelta(hours=live_total_hours)
         schedule.append({
             "時間": f"{current_time.strftime('%H:%M')}〜{end_time.strftime('%H:%M')}",
             "項目":"撤収",
