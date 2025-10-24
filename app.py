@@ -299,45 +299,48 @@ elif page == "ライブスケジュール":
         st.session_state.bands_manual = []
 
     st.subheader("バンド登録")
-    with st.form("add_band_form", clear_on_submit=True):
-        band_name = st.text_input("バンド名")
-        selected_members = {}
 
-        # パートごとに横並びで表示
-        cols = st.columns(len(parts))
-        for i, part in enumerate(parts):
-            with cols[i]:
-                st.markdown(f"**{part}枠**", unsafe_allow_html=True)
+    # バンド名入力
+    band_name = st.text_input("バンド名")
 
-                # 割り当てるパートを選択
-                assign_part = st.selectbox(
-                    "パート選択",
-                    options=parts,
-                    key=f"{part}_assign_part",
-                    label_visibility="collapsed"  # ラベル非表示で余白減
-                )
+    # 選択されたメンバーを保持する辞書
+    selected_members = {}
 
-                # 選択されたパートのメンバーだけ表示
-                members_for_assign = df_members[df_members["パート"] == assign_part]["名前"].tolist()
-                selected = st.multiselect(
-                    "メンバー",
-                    options=members_for_assign,
-                    key=f"{part}_select",
-                    label_visibility="collapsed"  # ラベル非表示で余白減
-                )
+    # パートごとに横並びで割り当てUIを作成
+    cols = st.columns(len(parts))
+    for i, part in enumerate(parts):
+        with cols[i]:
+            st.markdown(f"**{part}枠**", unsafe_allow_html=True)
+            
+            # どのパートの人をこの枠に入れるか選択
+            assign_part = st.selectbox(
+                "",
+                options=parts,
+                key=f"{part}_assign_part"
+            )
+            
+            # 選択されたパートのメンバーのみ表示
+            members_for_assign = df_members[df_members["パート"] == assign_part]["名前"].tolist()
+            selected = st.multiselect(
+                "",  # ラベルをなくしてコンパクトに
+                options=members_for_assign,
+                key=f"{part}_select"
+            )
+            
+            # 辞書に格納
+            selected_members[part] = selected
 
-                selected_members[part] = selected
+    # 追加ボタン
+    if st.button("バンドを追加"):
+        if not band_name:
+            st.warning("バンド名を入力してください")
+        else:
+            st.session_state.bands_manual.append({
+                "バンド名": band_name,
+                "メンバー": selected_members
+            })
+            st.success(f"{band_name} を追加しました")
 
-        submitted = st.form_submit_button("バンドを追加")
-        if submitted:
-            if not band_name:
-                st.warning("バンド名を入力してください")
-            else:
-                st.session_state.bands_manual.append({
-                    "バンド名": band_name,
-                    "メンバー": selected_members
-                })
-                st.success(f"{band_name} を追加しました")
 
     # ===============================
     # 登録済みバンド表示と削除
