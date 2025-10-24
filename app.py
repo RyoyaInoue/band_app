@@ -275,6 +275,9 @@ elif page == "ライブハウス予約・料金計算":
 elif page == "ライブスケジュール":
     st.title("ライブスケジュール作成")
 
+    # ライブスケジュールページ内
+    df_members = st.session_state.members_df.copy()
+
     # ライブ情報設定
     live_total_hours = st.number_input("ライブ総時間（時間）", min_value=1, value=8)
     start_hour = st.number_input("ライブ開始時刻（時）", min_value=0, max_value=23, value=10)
