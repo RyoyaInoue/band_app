@@ -424,58 +424,55 @@ elif page == "ライブスケジュール":
         })
         current_time = start_dt + timedelta(minutes=60)
 
-        # バンドの順序調整用コピー
         bands = copy.deepcopy(st.session_state["bands_manual"])
         scheduled_bands = []
-        last_two_members = []  # 直近2バンドの出演者を記録
+        last_two_members = []
 
         while bands:
             for i, b in enumerate(bands):
-                all_members = sum(b["メンバー"].values(), [])  # バンドの全メンバー
+                all_members = sum(b["メンバー"].values(), [])
                 vo_dr_members = b["メンバー"].get("Vo", []) + b["メンバー"].get("Dr", [])
 
-                # 直近2バンドのメンバーと重複しないかチェック
                 conflict = False
                 for member in all_members:
-                    # 3連続禁止判定
                     count_recent = sum(member in m for m in last_two_members)
                     if member in vo_dr_members:
-                        if count_recent >= 1:  # Vo/Drは連続NG
+                        if count_recent >= 1:
                             conflict = True
                             break
                     else:
-                        if count_recent >= 2:  # その他は3連続NG
+                        if count_recent >= 2:
                             conflict = True
                             break
 
                 if not conflict:
                     scheduled_bands.append(b)
-                    # last_two_members更新
                     last_two_members.append(all_members)
                     if len(last_two_members) > 2:
                         last_two_members.pop(0)
                     bands.pop(i)
                     break
             else:
-                # 全ての候補が3連続制約に引っかかった場合、強制的に1バンド挿入（転換時間）
-                scheduled_bands.append(None)  # Noneは空転換
-                last_two_members.append([])
-                if len(last_two_members) > 2:
-                    last_two_members.pop(0)
+                # 最後のバンドだけなら転換を入れずに強制挿入をスキップ
+                if bands:
+                    # 全候補が3連続制約に引っかかった場合だけ空転換
+                    scheduled_bands.append(None)
+                    last_two_members.append([])
+                    if len(last_two_members) > 2:
+                        last_two_members.pop(0)
 
-        # =========================
         # スケジュール表作成
-        # =========================
-        for b in scheduled_bands:
+        for idx, b in enumerate(scheduled_bands):
             if b is None:
-                # 強制転換
-                end_change = current_time + timedelta(minutes=band_change_minutes)
-                schedule.append({
-                    "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
-                    "項目": "転換",
-                    "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
-                })
-                current_time = end_change
+                # 強制転換（最後の要素ではない場合のみ）
+                if idx < len(scheduled_bands) - 1:
+                    end_change = current_time + timedelta(minutes=band_change_minutes)
+                    schedule.append({
+                        "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
+                        "項目": "転換",
+                        "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
+                    })
+                    current_time = end_change
                 continue
 
             # 演奏
@@ -505,7 +502,9 @@ elif page == "ライブスケジュール":
             "項目":"撤収",
             "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
         })
+
         return pd.DataFrame(schedule)
+
 
     # ===============================
     # スケジュール作成ボタン
