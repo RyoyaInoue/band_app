@@ -352,21 +352,26 @@ elif page == "ライブスケジュール":
             st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
 
         # ===============================
-        # バンド追加ボタン
+        # バンド追加用関数
         # ===============================
-        if st.button("バンドを追加"):
+        def add_band():
+            band_name = st.session_state["band_name_input"]
+            selected_members = st.session_state["selected_members_input"]
             if not band_name:
                 st.warning("バンド名を入力してください")
-            else:
-                st.session_state["bands_manual"].append({
-                    "バンド名": band_name,
-                    "メンバー": selected_members
-                })
-                st.success(f"{band_name} を追加しました")
+                return
+            st.session_state["bands_manual"].append({
+                "バンド名": band_name,
+                "メンバー": selected_members
+            })
+            st.success(f"{band_name} を追加しました")
+            reset_band_inputs()
 
-                # 入力リセットして rerun
-                reset_band_inputs()
-                st.experimental_rerun()
+        # ===============================
+        # バンド追加ボタン
+        # ===============================
+        st.button("バンドを追加", on_click=add_band)
+
 
 
     # ===============================
