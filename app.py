@@ -308,13 +308,17 @@ elif page == "ライブスケジュール":
     # バンド入力リセット関数
     # --------------------------
     def reset_band_inputs():
+    # セッションステートを初期化
         st.session_state["band_name_input"] = ""
         st.session_state["selected_members_input"] = {part: [] for part in parts}
         st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
-        # フォームのkeyに反映
+
+        # 各フォームの key に反映
+        st.session_state["band_name_input_display"] = ""
         for part in parts:
             st.session_state[f"{part}_assigned_parts"] = [part]
             st.session_state[f"{part}_select"] = []
+
 
     # --------------------------
     # バンド追加関数
