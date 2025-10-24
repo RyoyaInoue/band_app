@@ -275,9 +275,6 @@ elif page == "ライブハウス予約・料金計算":
 elif page == "ライブスケジュール":
     st.title("ライブスケジュール作成")
 
-    # ライブスケジュールページ内
-    df_members = st.session_state.members_df.copy()
-
     # ライブ情報設定
     live_total_hours = st.number_input("ライブ総時間（時間）", min_value=1, value=8)
     start_hour = st.number_input("ライブ開始時刻（時）", min_value=0, max_value=23, value=10)
@@ -285,14 +282,14 @@ elif page == "ライブスケジュール":
     band_play_minutes = st.number_input("1バンド演奏時間（分）", min_value=5, value=20)
     band_change_minutes = st.number_input("転換時間（分）", min_value=1, value=5)
 
-    # メンバー選択
-    df_members = pd.DataFrame(members_list)
+    # メンバー選択（セッションステートのDataFrameから取得）
+    df_members = st.session_state.members_df.copy()
     selected_names = st.multiselect("出演可能メンバーを選択", df_members["名前"].tolist())
     selected_members = df_members[df_members["名前"].isin(selected_names)]
 
     # パートごとに分ける
     parts = ["Vo","Gt","Ba","Dr","Key"]
-    members_by_part = {part:selected_members[selected_members["パート"]==part]["名前"].tolist() for part in parts}
+    members_by_part = {part: selected_members[selected_members["パート"]==part]["名前"].tolist() for part in parts}
 
     # バンド生成
     def create_band(members_by_part):
@@ -325,11 +322,12 @@ elif page == "ライブスケジュール":
                 for part, member in band.items():
                     if member in prev_bands[-1].values() and member in prev_bands[-2].values():
                         # 違うメンバーに変更できれば変更
-                        available = [m for m in members_by_part[part] if m not in prev_bands[-1].values() or m not in prev_bands[-2].values()]
+                        available = [m for m in members_by_part[part] 
+                                     if m not in prev_bands[-1].values() or m not in prev_bands[-2].values()]
                         if available:
                             band[part] = random.choice(available)
             
-            band_name = "Band " + str(len(schedule)-1)
+            band_name = "Band " + str(len(schedule)-2)
             schedule.append({"項目":band_name, "開始":current_time, "終了":current_time + timedelta(minutes=band_play_minutes)})
             current_time += timedelta(minutes=band_play_minutes)
 
