@@ -2,23 +2,14 @@ import streamlit as st
 import pandas as pd
 import random
 from collections import defaultdict
-import string
 from io import BytesIO
+import string
 
 # -------------------------------
-# サイドバーでページ選択
+# 初期データ
 # -------------------------------
-st.sidebar.title("ページ選択")
-page = st.sidebar.radio("ページ", ["バンド作成", "出演バンド選考・演奏順管理"])
-
-# -------------------------------
-# バンド作成ページ
-# -------------------------------
-if page == "バンド作成":
-
-    # --- 初期データ ---
-    if "members_df" not in st.session_state:
-        members_list = [
+if "members_df" not in st.session_state:
+    members_list = [
             {"名前":"祐太","パート":"Vo","学年":4,"経験レベル":"上級"},
         {"名前":"おうた","パート":"Vo","学年":1,"経験レベル":"初級"},
         {"名前":"大西真福","パート":"Vo","学年":3,"経験レベル":"中級"},
@@ -93,15 +84,44 @@ if page == "バンド作成":
         {"名前":"すなお","パート":"Gt","学年":4,"経験レベル":"上級"},
         {"名前":"高原","パート":"Ba","学年":4,"経験レベル":"上級"}
         ]
-        st.session_state.members_df = pd.DataFrame(members_list)
+    st.session_state.members_df = pd.DataFrame(members_list)
+    st.session_state.selected = {idx: False for idx in range(len(members_list))}
 
-    # --- 初期チェック状態 ---
-    if "selected" not in st.session_state:
-        st.session_state.selected = {idx: False for idx in st.session_state.members_df.index}
+# -------------------------------
+# サイドバーでページ選択
+# -------------------------------
+st.sidebar.title("ページ選択")
+page = st.sidebar.radio("ページ", ["バンド作成", "ライブハウス予約・料金計算"])
 
+# -------------------------------
+# バンド作成ページ
+# -------------------------------
+if page == "バンド作成":
     st.title("🎸 バンド作成アプリ")
 
+    df = st.session_state.members_df.copy()
+    experience_order = {"初級": 1, "中級": 2, "上級": 3}
+    df["経験順"] = df["経験レベル"].map(experience_order)
+
+    # 学年順・経験順・パート順で表示
+    df_sorted = df.sort_values(by=["学年", "経験順", "パート"], ascending=[True, False, True]).reset_index(drop=True)
+
+    st.subheader("🎤 参加者リスト（学年・経験・パート順）")
+    cols = st.columns(3)
+    for i, row in df_sorted.iterrows():
+        col_idx = i % 3
+        key = f"chk_{row['名前']}"
+        st.session_state.selected[row.name] = cols[col_idx].checkbox(
+            f"{row['名前']}（{row['パート']}・{row['学年']}年・{row['経験レベル']}）",
+            value=st.session_state.selected.get(row.name, False),
+            key=key
+        )
+    total_selected = sum(st.session_state.selected.values())
+    st.markdown(f"### ✅ 選択人数：{total_selected}人")
+
+    # -------------------------------
     # バンド作成関数
+    # -------------------------------
     def create_bands(df, selected):
         selected_members = df[[selected[i] for i in df.index]].copy()
         if selected_members.empty:
@@ -113,6 +133,7 @@ if page == "バンド作成":
         for _, row in selected_members.iterrows():
             parts[row["パート"]].append(row)
 
+        # バンド数の計算
         band_counts = []
         for part_name, members_list in parts.items():
             if part_name in max_per_band:
@@ -122,7 +143,9 @@ if page == "バンド作成":
         num_bands = min(band_counts)
         bands = [defaultdict(list) for _ in range(num_bands)]
 
+        # 各パートをバンドに割り振り
         for part_name, members_list in parts.items():
+            # 経験順でシャッフル
             if part_name in ["Gt", "Ba", "Dr"]:
                 high = [m for m in members_list if m["経験レベル"] == "上級"]
                 mid = [m for m in members_list if m["経験レベル"] == "中級"]
@@ -148,7 +171,9 @@ if page == "バンド作成":
                     bands[0][part_name].append(member["名前"])
         return bands
 
-    # バンド作成ボタン
+    # -------------------------------
+    # バンド作成トリガー
+    # -------------------------------
     if st.button("🎵 バンド作成"):
         bands_result = create_bands(st.session_state.members_df, st.session_state.selected)
         if bands_result:
@@ -164,6 +189,7 @@ if page == "バンド作成":
             result_df.loc[band_label] = row
         st.table(result_df)
 
+        # Excelダウンロード
         towrite = BytesIO()
         result_df.to_excel(towrite, index=True, sheet_name="Bands", engine="openpyxl")
         towrite.seek(0)
@@ -174,52 +200,23 @@ if page == "バンド作成":
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         )
 
-    # 参加者リスト
-    st.divider()
-    st.subheader("🎤 参加者リスト")
-    df_display = st.session_state.members_df.copy()
-    cols = st.columns(3)
-    for i, (_, row) in enumerate(df_display.iterrows()):
-        col_idx = i % 3
-        checkbox_key = f"chk_{row.name}"
-        st.session_state.selected[row.name] = cols[col_idx].checkbox(
-            f"{row['名前']}（{row['パート']}・{row['学年']}年・{row['経験レベル']}）",
-            value=st.session_state.selected[row.name],
-            key=checkbox_key
-        )
-    total_selected = sum(st.session_state.selected.values())
-    st.markdown(f"### ✅ 現在の選択人数：{total_selected}人")
-
 # -------------------------------
-# 出演バンド選考ページ
+# ライブハウス予約・料金計算ページ
 # -------------------------------
-elif page == "出演バンド選考・演奏順管理":
+elif page == "ライブハウス予約・料金計算":
     st.title("🎤 ライブハウス予約・料金計算")
 
-    # --- ライブハウス選択 ---
-    livehouses = ["CLUB GATE"]
+    livehouses = ["CLUB GATE", "Shibuya Milkyway", "難波ロケッツ"]
     selected_house = st.selectbox("ライブハウスを選択", livehouses)
 
-    # --- 日程選択 ---
     day_options = ["平日", "土曜", "日曜"]
     selected_day = st.selectbox("日程を選択", day_options)
 
-    # --- 利用時間選択 ---
     hours = st.number_input("利用時間（時間）", min_value=1, max_value=12, value=2)
 
-    # --- 料金計算 ---
-    # 仮の料金設定
-    base_price = 30000  # 平日1時間あたり
-    if selected_day == "平日":
-        price_per_hour = base_price
-    elif selected_day == "土曜":
-        price_per_hour = int(base_price * 1.5)
-    else:  # 日曜
-        price_per_hour = int(base_price * 2)
-
-    total_price = price_per_hour * hours
-    st.subheader("料金計算結果")
-    st.write(f"選択されたライブハウス: {selected_house}")
-    st.write(f"日程: {selected_day}")
-    st.write(f"利用時間: {hours}時間")
-    st.write(f"合計料金: {total_price:,}円")
+    # 簡易料金計算
+    base_price = 20000  # 平日基本料金
+    if selected_day in ["土曜", "日曜"]:
+        base_price = int(base_price * 1.5)
+    total_price = base_price * hours
+    st.markdown(f"### 💰 合計料金: {total_price}円")
