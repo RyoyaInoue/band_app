@@ -419,7 +419,7 @@ elif page == "ライブスケジュール":
         return df.applymap(highlight_cell)
 
     # ===============================
-    # スケジュール作成関数（連続出演調整付き）
+    # スケジュール作成関数（連続出演調整付き、色付け対応）
     # ===============================
     def create_schedule_manual():
         import copy
@@ -441,6 +441,7 @@ elif page == "ライブスケジュール":
         scheduled_bands = []
         last_two_members = []
 
+        # 連続出演調整
         while bands:
             for i, b in enumerate(bands):
                 all_members = sum(b["メンバー"].values(), [])
@@ -474,7 +475,7 @@ elif page == "ライブスケジュール":
                 if len(last_two_members) > 2:
                     last_two_members.pop(0)
 
-        # スケジュール作成
+        # スケジュール表作成
         prev_members = set()
         rows = []
         for idx, b in enumerate(scheduled_bands):
@@ -484,25 +485,23 @@ elif page == "ライブスケジュール":
                     rows.append({
                         "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
                         "項目": "転換",
-                        "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
-                    })
+                        "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""})
                     current_time = end_change
                 continue
 
             end_band = current_time + timedelta(minutes=band_play_minutes)
-            row = {
-                "時間": f"{current_time.strftime('%H:%M')}〜{end_band.strftime('%H:%M')}",
-                "項目": b["バンド名"]
-            }
+            row = {"時間": f"{current_time.strftime('%H:%M')}〜{end_band.strftime('%H:%M')}", "項目": b["バンド名"]}
 
             for part in parts:
                 members = b["メンバー"].get(part, [])
-                # prev_members に含まれている場合は黄色にするためのマーク
+                # 連続出演者を黄色背景でマーク
                 member_str = ", ".join(members)
                 row[part] = member_str
+
             rows.append(row)
+
+            # 次回用に現在の出演者を記録
             prev_members = set(sum([b["メンバー"].get(part, []) for part in parts], []))
-            highlight_consecutive.prev_members = prev_members  # style用に保存
             current_time = end_band
 
             if idx < len(scheduled_bands) - 1:
@@ -510,8 +509,7 @@ elif page == "ライブスケジュール":
                 rows.append({
                     "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
                     "項目": "転換",
-                    "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
-                })
+                    "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""})
                 current_time = end_change
 
         # 撤収
@@ -519,11 +517,24 @@ elif page == "ライブスケジュール":
         rows.append({
             "時間": f"{current_time.strftime('%H:%M')}〜{end_time_dt.strftime('%H:%M')}",
             "項目":"撤収",
-            "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
-        })
+            "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""})
 
         df_schedule = pd.DataFrame(rows)
-        return df_schedule.style.apply(highlight_consecutive)
+
+        # 色付け関数
+        def highlight_consecutive(df):
+            prev_members_local = set()
+            def highlight_cell(val):
+                if not isinstance(val, str) or not val:
+                    return ""
+                members = [m.strip() for m in val.split(",")]
+                if any(m in prev_members_local for m in members):
+                    return "background-color: #FFD700"  # 黄色
+                return ""
+            styled = df.style.applymap(highlight_cell)
+            return styled
+
+        return df_schedule  # Streamlit側で .style.apply する
 
 
     # ===============================
@@ -535,8 +546,9 @@ elif page == "ライブスケジュール":
         else:
             schedule_df = create_schedule_manual()
             st.subheader("ライブスケジュール")
-            st.dataframe(schedule_df, use_container_width=True, height=600)
+            st.write(schedule_df.style.apply(lambda df: highlight_consecutive(df).data, axis=None))  # 色付き表示
 
+            # Excel ダウンロード
             towrite = BytesIO()
             schedule_df.to_excel(towrite, index=False, sheet_name="Schedule", engine="openpyxl")
             towrite.seek(0)
