@@ -285,60 +285,68 @@ elif page == "ライブスケジュール":
     parts = ["Vo","Gt","Ba","Dr","Key"]
 
     # ===============================
-    # ライブ情報
-    # ===============================
-    live_total_hours = st.number_input("ライブ総時間（時間）", min_value=1, value=8)
-    start_time = st.time_input("ライブ開始時刻", value=datetime(2025,1,1,10,0).time())
-    band_play_minutes = st.number_input("1バンド演奏時間（分）", min_value=5, value=20)
-    band_change_minutes = st.number_input("転換時間（分）", min_value=1, value=5)
-
-    # ===============================
-    # バンド管理（フォーム版）
+    # バンド管理
     # ===============================
     if "bands_manual" not in st.session_state:
         st.session_state.bands_manual = []
 
-    st.markdown("### バンド登録")
+    st.markdown("### バンド登録（複数パートの割り当て可能）")
+    with st.container():
+        # 入力状態の初期化
+        if "band_name_input" not in st.session_state:
+            st.session_state.band_name_input = ""
+        if "selected_members_input" not in st.session_state:
+            st.session_state.selected_members_input = {part: [] for part in parts}
+        if "assigned_parts_input" not in st.session_state:
+            st.session_state.assigned_parts_input = {part: [part] for part in parts}  # 初期値は自分のパート
 
-    # フォームを使うことで追加後に自動リセット
-    with st.form("add_band_form", clear_on_submit=True):
-        # バンド名
-        band_name = st.text_input("バンド名")
-
-        # パートリスト
-        parts = ["Vo","Gt","Ba","Dr","Key"]
+        # バンド名入力
+        band_name = st.text_input(
+            "バンド名",
+            value=st.session_state.band_name_input,
+            key="band_name_input"
+        )
 
         # 選択されたメンバーを保持する辞書
         selected_members = {}
 
-        # 横並びでパートごとのUI
+        # パートごとに横並びUI
         cols = st.columns(len(parts))
         for i, part in enumerate(parts):
             with cols[i]:
                 st.markdown(f"**{part}枠**")
-                
-                # 初期値は自分のパート
-                assign_part = st.selectbox(
-                    "",
+
+                # 割り当てたいパートを複数選択
+                assigned_parts = st.multiselect(
+                    "追加するパート",
                     options=parts,
-                    index=parts.index(part),
-                    key=f"{part}_assign_part"
+                    default=st.session_state.assigned_parts_input.get(part, [part]),
+                    key=f"{part}_assigned_parts"
                 )
-                
-                # 選択されたパートのメンバーのみ表示
-                members_for_assign = df_members[df_members["パート"] == assign_part]["名前"].tolist()
+                st.session_state.assigned_parts_input[part] = assigned_parts
+
+                # 選択したパートのメンバーをまとめて取得
+                members_for_assign = []
+                for p in assigned_parts:
+                    members_for_assign += df_members[df_members["パート"] == p]["名前"].tolist()
+
+                # 重複除去
+                members_for_assign = list(dict.fromkeys(members_for_assign))
+
+                # メンバー選択
                 selected = st.multiselect(
-                    "",
+                    "メンバー選択",
                     options=members_for_assign,
+                    default=st.session_state.selected_members_input.get(part, []),
                     key=f"{part}_select"
                 )
-                
+
                 # 辞書に格納
                 selected_members[part] = selected
+                st.session_state.selected_members_input[part] = selected
 
-        # バンド追加ボタン
-        submitted = st.form_submit_button("バンドを追加")
-        if submitted:
+        # 追加ボタン
+        if st.button("バンドを追加"):
             if not band_name:
                 st.warning("バンド名を入力してください")
             else:
@@ -347,6 +355,12 @@ elif page == "ライブスケジュール":
                     "メンバー": selected_members
                 })
                 st.success(f"{band_name} を追加しました")
+
+                # 入力欄をリセット
+                st.session_state.band_name_input = ""
+                st.session_state.selected_members_input = {part: [] for part in parts}
+                st.session_state.assigned_parts_input = {part: [part] for part in parts}
+
 
 
     # ===============================
