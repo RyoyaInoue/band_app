@@ -301,7 +301,7 @@ elif page == "ライブスケジュール":
 
     st.subheader("バンド登録")
     with st.form("add_band_form", clear_on_submit=True):
-        band_name = st.text_input("バンド名")  # Enter 押しても即登録されない
+        band_name = st.text_input("バンド名")
         selected_members = {}
         for part in parts:
             names_for_part = df_members[df_members["パート"]==part]["名前"].tolist()
@@ -328,8 +328,9 @@ elif page == "ライブスケジュール":
             cols = st.columns([4, 1])
             with cols[0]:
                 st.markdown(f"**🎸 {b['バンド名']}**")
-                # DataFrameに変換してst.dataframeで表示
-                band_table = pd.DataFrame.from_dict(b["メンバー"], orient="index", columns=["メンバー"])
+                # リストを文字列化してDataFrame表示
+                member_str_dict = {part: ", ".join(members) if members else "" for part, members in b["メンバー"].items()}
+                band_table = pd.DataFrame.from_dict(member_str_dict, orient="index", columns=["メンバー"])
                 st.dataframe(band_table, use_container_width=True, height=len(band_table)*40)
             with cols[1]:
                 if st.button("削除", key=f"del_{idx}"):
@@ -344,12 +345,12 @@ elif page == "ライブスケジュール":
         start_dt = datetime.combine(datetime.today(), start_time)
         # 幹部その他集合
         schedule.append({
-            "時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"), 
+            "時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"),
             "項目":"幹部その他集合"
         })
         # 参加者全員集合
         schedule.append({
-            "時間": (start_dt+timedelta(minutes=30)).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=60)).strftime("%H:%M"), 
+            "時間": (start_dt+timedelta(minutes=30)).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=60)).strftime("%H:%M"),
             "項目":"参加者全員集合"
         })
         current_time = start_dt + timedelta(minutes=60)
@@ -401,4 +402,3 @@ elif page == "ライブスケジュール":
                 file_name="live_schedule.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
-
