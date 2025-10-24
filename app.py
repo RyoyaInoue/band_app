@@ -406,20 +406,21 @@ elif page == "ライブスケジュール":
     band_change_minutes = st.number_input("バンド転換時間（分）", value=5, min_value=0)
     live_total_hours = st.number_input("ライブ全体の所要時間（時間）", value=4, min_value=1)
 
-
-    def highlight_consecutive(df):
-        # メンバーが prev_members に含まれていたら色付け
+    # ===============================
+    # 色付け関数（prev_members を引数で渡す）
+    # ===============================
+    def highlight_consecutive(df, prev_members):
         def highlight_cell(val):
             if not isinstance(val, str) or not val:
                 return ""
             members = [m.strip("★") for m in val.split(",")]
-            if any(m in highlight_consecutive.prev_members for m in members):
+            if any(m in prev_members for m in members):
                 return "background-color: #FFD700"  # 黄色
             return ""
         return df.applymap(highlight_cell)
 
     # ===============================
-    # スケジュール作成関数（連続出演調整付き、色付け対応）
+    # スケジュール作成関数（連続出演調整付き）
     # ===============================
     def create_schedule_manual():
         import copy
@@ -476,8 +477,8 @@ elif page == "ライブスケジュール":
                     last_two_members.pop(0)
 
         # スケジュール表作成
-        prev_members = set()
         rows = []
+        prev_members = set()
         for idx, b in enumerate(scheduled_bands):
             if b is None:
                 if idx < len(scheduled_bands) - 1:
@@ -494,13 +495,10 @@ elif page == "ライブスケジュール":
 
             for part in parts:
                 members = b["メンバー"].get(part, [])
-                # 連続出演者を黄色背景でマーク
                 member_str = ", ".join(members)
                 row[part] = member_str
 
             rows.append(row)
-
-            # 次回用に現在の出演者を記録
             prev_members = set(sum([b["メンバー"].get(part, []) for part in parts], []))
             current_time = end_band
 
@@ -520,22 +518,7 @@ elif page == "ライブスケジュール":
             "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""})
 
         df_schedule = pd.DataFrame(rows)
-
-        # 色付け関数
-        def highlight_consecutive(df):
-            prev_members_local = set()
-            def highlight_cell(val):
-                if not isinstance(val, str) or not val:
-                    return ""
-                members = [m.strip() for m in val.split(",")]
-                if any(m in prev_members_local for m in members):
-                    return "background-color: #FFD700"  # 黄色
-                return ""
-            styled = df.style.applymap(highlight_cell)
-            return styled
-
-        return df_schedule  # Streamlit側で .style.apply する
-
+        return df_schedule
 
     # ===============================
     # スケジュール作成ボタン
@@ -546,7 +529,12 @@ elif page == "ライブスケジュール":
         else:
             schedule_df = create_schedule_manual()
             st.subheader("ライブスケジュール")
-            st.write(schedule_df.style.apply(lambda df: highlight_consecutive(df).data, axis=None))  # 色付き表示
+
+            # 色付き表示
+            prev_members = set()
+            styled_df = schedule_df.copy()
+            # Vo/Dr とそれ以外に分けて色付けする場合もここで対応可能
+            st.write(highlight_consecutive(styled_df, prev_members))
 
             # Excel ダウンロード
             towrite = BytesIO()
