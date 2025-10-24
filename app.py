@@ -270,7 +270,7 @@ elif page == "ライブハウス予約・料金計算":
     st.markdown(f"### 💴 合計料金（税込10%）: {total_price_incl_tax:,}円")
 
 # ===============================================================
-# ライブスケジュールページ
+# ライブスケジュールページ（連続出演調整版）
 # ===============================================================
 elif page == "ライブスケジュール":
     st.title("ライブスケジュール作成（手動バンド登録）")
@@ -308,17 +308,13 @@ elif page == "ライブスケジュール":
     # バンド入力リセット関数
     # --------------------------
     def reset_band_inputs():
-    # セッションステートを初期化
         st.session_state["band_name_input"] = ""
         st.session_state["selected_members_input"] = {part: [] for part in parts}
         st.session_state["assigned_parts_input"] = {part: [part] for part in parts}
-
-        # 各フォームの key に反映
         st.session_state["band_name_input_display"] = ""
         for part in parts:
             st.session_state[f"{part}_assigned_parts"] = [part]
             st.session_state[f"{part}_select"] = []
-
 
     # --------------------------
     # バンド追加関数
@@ -382,7 +378,6 @@ elif page == "ライブスケジュール":
 
         st.session_state["selected_members_input"] = selected_members
 
-        # バンド追加・リセットボタン
         st.button("バンドを追加", on_click=add_band)
         st.button("入力をリセット", on_click=reset_band_inputs)
 
@@ -411,7 +406,7 @@ elif page == "ライブスケジュール":
     live_total_hours = st.number_input("ライブ全体の所要時間（時間）", value=4, min_value=1)
 
     # ===============================
-    # スケジュール作成関数
+    # スケジュール作成関数（連続出演調整付き）
     # ===============================
     def create_schedule_manual():
         schedule = []
@@ -427,7 +422,27 @@ elif page == "ライブスケジュール":
         })
         current_time = start_dt + timedelta(minutes=60)
 
-        for b in st.session_state["bands_manual"]:
+        # 連続出演調整
+        bands = st.session_state["bands_manual"].copy()
+        scheduled_bands = []
+        recent_members = set()
+
+        while bands:
+            for i, b in enumerate(bands):
+                members = set(sum(b["メンバー"].values(), []))
+                if recent_members & members:
+                    continue  # 最近出演した人がいる場合はスキップ
+                scheduled_bands.append(b)
+                recent_members = members
+                bands.pop(i)
+                break
+            else:
+                # 全バンドが連続出演の条件に当たる場合はそのまま追加
+                scheduled_bands.extend(bands)
+                break
+
+        # スケジュール生成
+        for b in scheduled_bands:
             end_band = current_time + timedelta(minutes=band_play_minutes)
             row = {
                 "時間": f"{current_time.strftime('%H:%M')}〜{end_band.strftime('%H:%M')}",
@@ -465,7 +480,6 @@ elif page == "ライブスケジュール":
             st.subheader("ライブスケジュール")
             st.dataframe(schedule_df, use_container_width=True, height=600)
 
-            # Excelダウンロード
             towrite = BytesIO()
             schedule_df.to_excel(towrite, index=False, sheet_name="Schedule", engine="openpyxl")
             towrite.seek(0)
