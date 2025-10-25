@@ -443,14 +443,13 @@ elif page == "ライブスケジュール":
         parts = ["Vo", "Gt", "Ba", "Dr", "Key"]
 
         bands = copy.deepcopy(st.session_state["bands_manual"])
-        # バンド名に "Band" が含まれるものを固定
         fixed_bands = [b for b in bands if "Band" in b["バンド名"]]
         remaining_bands = [b for b in bands if "Band" not in b["バンド名"]]
 
         scheduled_bands = []
         last_two_members = []
 
-        # 固定バンドを追加（順番固定）
+        # 固定バンド追加（順番固定）
         for b in fixed_bands:
             scheduled_bands.append(b)
             members = sum(b["メンバー"].values(), [])
@@ -458,25 +457,13 @@ elif page == "ライブスケジュール":
             if len(last_two_members) > 2:
                 last_two_members.pop(0)
 
-        # 可変バンドを配置
+        # 可変バンド追加
         while remaining_bands:
-            # 2連続優先で並び替え（過去2回に出ているメンバーが多い順）
-            remaining_bands.sort(
-                key=lambda b: -sum(member in m for member in sum(b["メンバー"].values(), []) for m in last_two_members)
-            )
-
             placed = False
+            # 3連続チェックして問題ないものから追加
             for i, b in enumerate(remaining_bands):
                 all_members = sum(b["メンバー"].values(), [])
-                # 3連続メンバーがいないか確認
-                conflict = any(
-                    sum(member in m for m in last_two_members) >= 2
-                    for member in all_members
-                )
-                # 残りバンドが少なければ強制配置
-                if conflict and len(remaining_bands) <= 2:
-                    conflict = False
-
+                conflict = any(sum(member in m for m in last_two_members) >= 2 for member in all_members)
                 if not conflict:
                     scheduled_bands.append(b)
                     last_two_members.append(all_members)
@@ -485,9 +472,15 @@ elif page == "ライブスケジュール":
                     remaining_bands.pop(i)
                     placed = True
                     break
+
             if not placed:
-                # 強制配置（3連続禁止を無視）
-                b = remaining_bands.pop(0)
+                # どうしても3連続になる場合は、3連続になるメンバーが最小のバンドを選ぶ
+                min_conflict_idx = min(
+                    range(len(remaining_bands)),
+                    key=lambda i: sum(sum(member in m for m in last_two_members) >= 2
+                                    for member in sum(remaining_bands[i]["メンバー"].values(), []))
+                )
+                b = remaining_bands.pop(min_conflict_idx)
                 scheduled_bands.append(b)
                 last_two_members.append(sum(b["メンバー"].values(), []))
                 if len(last_two_members) > 2:
@@ -534,6 +527,7 @@ elif page == "ライブスケジュール":
         })
 
         return pd.DataFrame(schedule)
+
 
 
     # ===============================
