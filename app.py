@@ -256,7 +256,10 @@ elif page == "ライブハウス予約・料金計算":
     elif hours <= 8:
         total_price = price_4h + (price_8h - price_4h) * ((hours - 4) / 4)
     else:
-        total_price = price_8h + (price_8h - price_4h) / 4 * (hours - 8)
+        # 8時間を超えた場合：8時間料金 + 30分ごとに6,000円加算
+        extra_hours = hours - 8
+        half_hours = int(extra_hours * 2)  # 30分単位に変換
+        total_price = price_8h + half_hours * 6000
 
     # 楽屋使用料追加
     if use_dressing_room:
