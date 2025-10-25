@@ -138,16 +138,16 @@ def create_bands(df, selected):
     num_bands = min(band_counts) if band_counts else 1
     bands = [defaultdict(list) for _ in range(num_bands)]
 
-    # ===== まず3年生を均等に割り振る =====
-    members_3rd = selected_members[selected_members["学年"] == 3]
-    for idx, (_, member) in enumerate(members_3rd.iterrows()):
+    # ===== まず全体で3年生を均等に割り振る =====
+    members_3rd = selected_members[selected_members["学年"] == 3].to_dict("records")
+    for idx, member in enumerate(members_3rd):
         band_idx = idx % num_bands
         part_name = member["パート"]
         bands[band_idx][part_name].append(member["名前"])
 
     # ===== 残りメンバーをパートごとに振り分け =====
     for part_name, members_list in parts.items():
-        # すでに3年生で割り振ったメンバーを除く
+        # 3年生はすでに割り振ったので除外
         remaining_members = [m for m in members_list if m["学年"] != 3]
 
         # 経験順でシャッフル
@@ -176,6 +176,7 @@ def create_bands(df, selected):
                 bands[0][part_name].append(member["名前"])
 
     return bands
+
 
 
 # ===============================================================
