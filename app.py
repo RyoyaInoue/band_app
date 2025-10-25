@@ -138,17 +138,27 @@ def create_bands(df, selected):
     num_bands = min(band_counts) if band_counts else 1
     bands = [defaultdict(list) for _ in range(num_bands)]
 
-    # パートごとにバンドに振り分け
+    # ===== まず3年生を均等に割り振る =====
+    members_3rd = selected_members[selected_members["学年"] == 3]
+    for idx, (_, member) in enumerate(members_3rd.iterrows()):
+        band_idx = idx % num_bands
+        part_name = member["パート"]
+        bands[band_idx][part_name].append(member["名前"])
+
+    # ===== 残りメンバーをパートごとに振り分け =====
     for part_name, members_list in parts.items():
+        # すでに3年生で割り振ったメンバーを除く
+        remaining_members = [m for m in members_list if m["学年"] != 3]
+
         # 経験順でシャッフル
         if part_name in ["Gt", "Ba", "Dr"]:
-            high = [m for m in members_list if m["経験レベル"] == "上級"]
-            mid = [m for m in members_list if m["経験レベル"] == "中級"]
-            low = [m for m in members_list if m["経験レベル"] == "初級"]
+            high = [m for m in remaining_members if m["経験レベル"] == "上級"]
+            mid = [m for m in remaining_members if m["経験レベル"] == "中級"]
+            low = [m for m in remaining_members if m["経験レベル"] == "初級"]
             random.shuffle(high); random.shuffle(mid); random.shuffle(low)
             members_sorted = high + mid + low
         else:
-            members_sorted = members_list.copy()
+            members_sorted = remaining_members.copy()
             random.shuffle(members_sorted)
 
         band_idx = 0
@@ -164,7 +174,9 @@ def create_bands(df, selected):
                     break
             else:
                 bands[0][part_name].append(member["名前"])
+
     return bands
+
 
 # ===============================================================
 # バンド作成ページ
