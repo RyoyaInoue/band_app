@@ -440,34 +440,41 @@ elif page == "ライブスケジュール":
         })
         current_time = start_dt + timedelta(minutes=60)
 
-        bands_all = copy.deepcopy(st.session_state["bands_manual"])
-        # 固定バンド（最初の数バンド）と可変バンドに分ける
-        fixed_bands = [b for b in bands_all if b.get("固定順")]  # 1ページ目の順番バンドにフラグを追加しておく
-        remaining_bands = [b for b in bands_all if not b.get("固定順")]
+        parts = ["Vo", "Gt", "Ba", "Dr", "Key"]
+
+        bands = copy.deepcopy(st.session_state["bands_manual"])
+        fixed_bands = [bands[0]] if bands else []  # 最初のバンドを固定
+        remaining_bands = bands[1:] if len(bands) > 1 else []
 
         scheduled_bands = []
         last_two_members = []
 
-        # まず固定バンドをそのまま追加
+        # 固定バンドを追加（順番固定）
         for b in fixed_bands:
             scheduled_bands.append(b)
-            last_two_members.append(sum(b["メンバー"].values(), []))
+            members = sum(b["メンバー"].values(), [])
+            last_two_members.append(members)
             if len(last_two_members) > 2:
                 last_two_members.pop(0)
 
-        # 残りバンドを調整して追加
+        # 可変バンドを配置
         while remaining_bands:
-            # 2連続メンバーを優先する
-            remaining_bands.sort(key=lambda b: -sum(member in sum(last_two_members, []) for member in sum(b["メンバー"].values(), [])))
+            # 2連続優先で並び替え（過去2回に出ているメンバーが多い順）
+            remaining_bands.sort(
+                key=lambda b: -sum(member in m for member in sum(b["メンバー"].values(), []) for m in last_two_members)
+            )
+
+            placed = False
             for i, b in enumerate(remaining_bands):
                 all_members = sum(b["メンバー"].values(), [])
-
-                conflict = False
-                for member in all_members:
-                    count_recent = sum(member in m for m in last_two_members)
-                    if count_recent >= 2:  # 3連続禁止
-                        conflict = True
-                        break
+                # 3連続メンバーがいないか確認
+                conflict = any(
+                    sum(member in m for m in last_two_members) >= 2
+                    for member in all_members
+                )
+                # 残りバンドが少なければ強制配置
+                if conflict and len(remaining_bands) <= 2:
+                    conflict = False
 
                 if not conflict:
                     scheduled_bands.append(b)
@@ -475,15 +482,17 @@ elif page == "ライブスケジュール":
                     if len(last_two_members) > 2:
                         last_two_members.pop(0)
                     remaining_bands.pop(i)
+                    placed = True
                     break
-            else:
-                # 強制配置（どうしても配置できない場合）
-                scheduled_bands.append(remaining_bands.pop(0))
-                last_two_members.append([])
+            if not placed:
+                # 強制配置（3連続禁止を無視）
+                b = remaining_bands.pop(0)
+                scheduled_bands.append(b)
+                last_two_members.append(sum(b["メンバー"].values(), []))
                 if len(last_two_members) > 2:
                     last_two_members.pop(0)
 
-        # 以下、スケジュール表作成は元コードと同じ
+        # スケジュール表作成（★マーク付き）
         prev_members = set()
         for idx, b in enumerate(scheduled_bands):
             end_band = current_time + timedelta(minutes=band_play_minutes)
@@ -505,6 +514,7 @@ elif page == "ライブスケジュール":
             prev_members = set(sum([b["メンバー"].get(part, []) for part in parts], []))
             current_time = end_band
 
+            # 転換時間
             if idx < len(scheduled_bands) - 1:
                 end_change = current_time + timedelta(minutes=band_change_minutes)
                 schedule.append({
