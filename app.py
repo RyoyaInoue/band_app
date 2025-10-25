@@ -400,10 +400,10 @@ elif page == "ライブスケジュール":
     # スケジュール設定UI
     # ===============================
     st.markdown("### スケジュール設定")
-    start_time = st.time_input("ライブ開始時刻", value=datetime.strptime("12:00", "%H:%M").time())
+    start_time = st.time_input("ライブ開始時刻", value=datetime.strptime("10:00", "%H:%M").time())
     band_play_minutes = st.number_input("1バンド演奏時間（分）", value=20, min_value=1)
-    band_change_minutes = st.number_input("バンド転換時間（分）", value=5, min_value=0)
-    live_total_hours = st.number_input("ライブ全体の所要時間（時間）", value=4, min_value=1)
+    band_change_minutes = st.number_input("バンド転換時間（分）", value=10, min_value=0)
+    live_total_hours = st.number_input("ライブ全体の所要時間（時間）", value=8, min_value=1)
 
     # ===============================
     # スケジュール作成関数（連続出演調整付き）
