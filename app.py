@@ -443,8 +443,9 @@ elif page == "ライブスケジュール":
         parts = ["Vo", "Gt", "Ba", "Dr", "Key"]
 
         bands = copy.deepcopy(st.session_state["bands_manual"])
-        fixed_bands = [bands[0]] if bands else []  # 最初のバンドを固定
-        remaining_bands = bands[1:] if len(bands) > 1 else []
+        # バンド名に "Band" が含まれるものを固定
+        fixed_bands = [b for b in bands if "Band" in b["バンド名"]]
+        remaining_bands = [b for b in bands if "Band" not in b["バンド名"]]
 
         scheduled_bands = []
         last_two_members = []
@@ -533,9 +534,6 @@ elif page == "ライブスケジュール":
         })
 
         return pd.DataFrame(schedule)
-
-
-
 
 
     # ===============================
