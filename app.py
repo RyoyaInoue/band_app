@@ -422,7 +422,7 @@ elif page == "ライブスケジュール":
     live_total_hours = st.number_input("ライブ全体の所要時間（時間）", value=8, min_value=1)
 
     # ===============================
-    # スケジュール作成関数（連続出演調整付き）
+    # スケジュール作成関数（3連続出演防止つき）
     # ===============================
     def create_schedule_manual():
         import copy
@@ -431,11 +431,11 @@ elif page == "ライブスケジュール":
 
         # 幹部集合・参加者集合
         schedule.append({
-            "時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"),
+            "時間": f"{start_dt.strftime('%H:%M')}〜{(start_dt+timedelta(minutes=30)).strftime('%H:%M')}",
             "項目": "幹部その他集合"
         })
         schedule.append({
-            "時間": (start_dt+timedelta(minutes=30)).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=60)).strftime("%H:%M"),
+            "時間": f"{(start_dt+timedelta(minutes=30)).strftime('%H:%M')}〜{(start_dt+timedelta(minutes=60)).strftime('%H:%M')}",
             "項目": "参加者全員集合"
         })
         current_time = start_dt + timedelta(minutes=60)
@@ -447,58 +447,56 @@ elif page == "ライブスケジュール":
         remaining_bands = [b for b in bands if "Band" not in b["バンド名"]]
 
         scheduled_bands = []
-        last_two_members = []
+        last_members = []  # ← 直近3回分まで保持
 
         # --- 固定バンドを順番固定で追加 ---
         for b in fixed_bands:
             scheduled_bands.append(b)
             members = sum(b["メンバー"].values(), [])
-            last_two_members.append(members)
-            if len(last_two_members) > 2:
-                last_two_members.pop(0)
+            last_members.append(members)
+            if len(last_members) > 3:  # ← 3回分保持
+                last_members.pop(0)
 
         # --- 可変バンドの追加処理 ---
         while remaining_bands:
-            placed = False
-
-            # 各バンドの「直前出演メンバー数」と「3連続になるメンバー数」を評価
             candidates = []
             for i, b in enumerate(remaining_bands):
                 all_members = sum(b["メンバー"].values(), [])
-                recent_count = sum(m in last_two_members[-1] for m in members) if last_two_members else 0
-                triple_conflict = any(sum(member in m for m in last_two_members) >= 2 for member in all_members)
 
-                # 候補リストに追加（連続人数多いほど優先、ただし3連続は禁止）
+                # ★ 直近2回にどれくらい被っているか
+                recent_count = sum(
+                    any(m in prev for m in all_members) for prev in last_members[-2:]
+                ) if last_members else 0
+
+                # ★ 直近3回すべてに同一人物が含まれていないかチェック
+                triple_conflict = False
+                if len(last_members) >= 2:
+                    for m in all_members:
+                        if all(m in prev for prev in last_members[-2:]):
+                            triple_conflict = True
+                            break
+
                 candidates.append({
                     "index": i,
                     "recent_count": recent_count,
                     "triple_conflict": triple_conflict
                 })
 
-            # まず「3連続にならない」中で最も recent_count が多い（=連続を優先）
+            # 3連続にならない候補から選ぶ
             valid_candidates = [c for c in candidates if not c["triple_conflict"]]
             if valid_candidates:
                 best = max(valid_candidates, key=lambda c: c["recent_count"])
-                b = remaining_bands.pop(best["index"])
-                scheduled_bands.append(b)
-                last_two_members.append(sum(b["メンバー"].values(), []))
-                if len(last_two_members) > 2:
-                    last_two_members.pop(0)
-                placed = True
             else:
-                # どうしても3連続になる場合は、被りが最も少ないものを選ぶ
-                min_conflict_idx = min(
-                    range(len(remaining_bands)),
-                    key=lambda i: sum(sum(member in m for m in last_two_members) >= 2
-                                    for member in sum(remaining_bands[i]["メンバー"].values(), []))
-                )
-                b = remaining_bands.pop(min_conflict_idx)
-                scheduled_bands.append(b)
-                last_two_members.append(sum(b["メンバー"].values(), []))
-                if len(last_two_members) > 2:
-                    last_two_members.pop(0)
+                # どうしても3連続になる場合は一番被りが少ないもの
+                best = min(candidates, key=lambda c: c["recent_count"])
 
-        # --- スケジュール表作成（★マーク付き） ---
+            b = remaining_bands.pop(best["index"])
+            scheduled_bands.append(b)
+            last_members.append(sum(b["メンバー"].values(), []))
+            if len(last_members) > 3:
+                last_members.pop(0)
+
+        # --- スケジュール表作成 ---
         prev_members = set()
         for idx, b in enumerate(scheduled_bands):
             end_band = current_time + timedelta(minutes=band_play_minutes)
@@ -530,7 +528,7 @@ elif page == "ライブスケジュール":
                 })
                 current_time = end_change
 
-        # --- 撤収 ---
+        # 撤収
         end_time_dt = start_dt + timedelta(hours=live_total_hours)
         schedule.append({
             "時間": f"{current_time.strftime('%H:%M')}〜{end_time_dt.strftime('%H:%M')}",
@@ -539,8 +537,6 @@ elif page == "ライブスケジュール":
         })
 
         return pd.DataFrame(schedule)
-
-
 
 
     # ===============================
