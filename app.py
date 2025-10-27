@@ -432,11 +432,11 @@ elif page == "ライブスケジュール":
         # 幹部集合・参加者集合
         schedule.append({
             "時間": (start_dt).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=30)).strftime("%H:%M"),
-            "項目":"幹部その他集合"
+            "項目": "幹部その他集合"
         })
         schedule.append({
             "時間": (start_dt+timedelta(minutes=30)).strftime("%H:%M")+"〜"+(start_dt+timedelta(minutes=60)).strftime("%H:%M"),
-            "項目":"参加者全員集合"
+            "項目": "参加者全員集合"
         })
         current_time = start_dt + timedelta(minutes=60)
 
@@ -449,7 +449,7 @@ elif page == "ライブスケジュール":
         scheduled_bands = []
         last_two_members = []
 
-        # 固定バンド追加（順番固定）
+        # --- 固定バンドを順番固定で追加 ---
         for b in fixed_bands:
             scheduled_bands.append(b)
             members = sum(b["メンバー"].values(), [])
@@ -457,24 +457,36 @@ elif page == "ライブスケジュール":
             if len(last_two_members) > 2:
                 last_two_members.pop(0)
 
-        # 可変バンド追加
+        # --- 可変バンドの追加処理 ---
         while remaining_bands:
             placed = False
-            # 3連続チェックして問題ないものから追加
+
+            # 各バンドの「直前出演メンバー数」と「3連続になるメンバー数」を評価
+            candidates = []
             for i, b in enumerate(remaining_bands):
                 all_members = sum(b["メンバー"].values(), [])
-                conflict = any(sum(member in m for m in last_two_members) >= 2 for member in all_members)
-                if not conflict:
-                    scheduled_bands.append(b)
-                    last_two_members.append(all_members)
-                    if len(last_two_members) > 2:
-                        last_two_members.pop(0)
-                    remaining_bands.pop(i)
-                    placed = True
-                    break
+                recent_count = sum(member in m for m in last_two_members[-1]) if last_two_members else 0
+                triple_conflict = any(sum(member in m for m in last_two_members) >= 2 for member in all_members)
 
-            if not placed:
-                # どうしても3連続になる場合は、3連続になるメンバーが最小のバンドを選ぶ
+                # 候補リストに追加（連続人数多いほど優先、ただし3連続は禁止）
+                candidates.append({
+                    "index": i,
+                    "recent_count": recent_count,
+                    "triple_conflict": triple_conflict
+                })
+
+            # まず「3連続にならない」中で最も recent_count が多い（=連続を優先）
+            valid_candidates = [c for c in candidates if not c["triple_conflict"]]
+            if valid_candidates:
+                best = max(valid_candidates, key=lambda c: c["recent_count"])
+                b = remaining_bands.pop(best["index"])
+                scheduled_bands.append(b)
+                last_two_members.append(sum(b["メンバー"].values(), []))
+                if len(last_two_members) > 2:
+                    last_two_members.pop(0)
+                placed = True
+            else:
+                # どうしても3連続になる場合は、被りが最も少ないものを選ぶ
                 min_conflict_idx = min(
                     range(len(remaining_bands)),
                     key=lambda i: sum(sum(member in m for m in last_two_members) >= 2
@@ -486,7 +498,7 @@ elif page == "ライブスケジュール":
                 if len(last_two_members) > 2:
                     last_two_members.pop(0)
 
-        # スケジュール表作成（★マーク付き）
+        # --- スケジュール表作成（★マーク付き） ---
         prev_members = set()
         for idx, b in enumerate(scheduled_bands):
             end_band = current_time + timedelta(minutes=band_play_minutes)
@@ -514,19 +526,20 @@ elif page == "ライブスケジュール":
                 schedule.append({
                     "時間": f"{current_time.strftime('%H:%M')}〜{end_change.strftime('%H:%M')}",
                     "項目": "転換",
-                    "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
+                    "Vo": "", "Gt": "", "Ba": "", "Dr": "", "Key": ""
                 })
                 current_time = end_change
 
-        # 撤収
+        # --- 撤収 ---
         end_time_dt = start_dt + timedelta(hours=live_total_hours)
         schedule.append({
             "時間": f"{current_time.strftime('%H:%M')}〜{end_time_dt.strftime('%H:%M')}",
-            "項目":"撤収",
-            "Vo":"", "Gt":"", "Ba":"", "Dr":"", "Key":""
+            "項目": "撤収",
+            "Vo": "", "Gt": "", "Ba": "", "Dr": "", "Key": ""
         })
 
         return pd.DataFrame(schedule)
+
 
 
 
