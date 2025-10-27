@@ -465,7 +465,7 @@ elif page == "ライブスケジュール":
             candidates = []
             for i, b in enumerate(remaining_bands):
                 all_members = sum(b["メンバー"].values(), [])
-                recent_count = sum(member in m for m in last_two_members[-1]) if last_two_members else 0
+                recent_count = sum(m in last_two_members[-1] for m in members) if last_two_members else 0
                 triple_conflict = any(sum(member in m for m in last_two_members) >= 2 for member in all_members)
 
                 # 候補リストに追加（連続人数多いほど優先、ただし3連続は禁止）
