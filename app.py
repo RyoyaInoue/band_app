@@ -539,10 +539,36 @@ elif page == "ライブスケジュール":
         return pd.DataFrame(schedule)
 
 
+    # 参加回数の集計と出演料計算
+    def calculate_participation_fee(schedule_df):
+        parts = ["Vo", "Gt", "Ba", "Dr", "Key"]
+        fee_dict = defaultdict(int)
+
+        # 出演回数をカウント
+        for idx, row in schedule_df.iterrows():
+            if row["項目"] in ["幹部その他集合", "参加者全員集合", "転換", "撤収"]:
+                continue
+            for part in parts:
+                members = row.get(part, "")
+                if members:
+                    # 「★」付きは無視して名前だけ抽出
+                    members_clean = [m.replace("★", "").strip() for m in members.split(",") if m.strip()]
+                    for m in members_clean:
+                        fee_dict[m] += 1
+
+        # ドリンク代 + 出演料計算
+        participation_fee = []
+        for member, count in fee_dict.items():
+            total_fee = 600 + 600 * count
+            participation_fee.append({"名前": member, "出演回数": count, "出演料": total_fee})
+
+        return pd.DataFrame(participation_fee)
+
+
     # ===============================
     # スケジュール作成ボタン
     # ===============================
-    if st.button("スケジュール作成"):
+    if st.button("スケジュール作成＆料金計算"):
         if not st.session_state["bands_manual"]:
             st.warning("まずバンドを登録してください")
         else:
@@ -550,12 +576,16 @@ elif page == "ライブスケジュール":
             st.subheader("ライブスケジュール")
             st.dataframe(schedule_df, use_container_width=True, height=600)
 
-            towrite = BytesIO()
-            schedule_df.to_excel(towrite, index=False, sheet_name="Schedule", engine="openpyxl")
-            towrite.seek(0)
+            # 出演料計算
+            fee_df = calculate_participation_fee(schedule_df)
+            st.subheader("出演料")
+            st.dataframe(fee_df, use_container_width=True, height=400)
+
+            # エクセル出力
+            towrite = export_schedule_and_fee(schedule_df, fee_df)
             st.download_button(
-                "Excel ダウンロード",
+                "スケジュール＆出演料をExcelでダウンロード",
                 data=towrite,
-                file_name="live_schedule.xlsx",
+                file_name="live_schedule_fee.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
