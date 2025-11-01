@@ -564,6 +564,14 @@ elif page == "ライブスケジュール":
 
         return pd.DataFrame(participation_fee)
 
+    # エクセルにスケジュールと料金をまとめて出力
+    def export_schedule_and_fee(schedule_df, fee_df):
+        towrite = BytesIO()
+        with pd.ExcelWriter(towrite, engine="openpyxl") as writer:
+            schedule_df.to_excel(writer, index=False, sheet_name="ライブスケジュール")
+            fee_df.to_excel(writer, index=False, sheet_name="出演料")
+        towrite.seek(0)
+        return towrite
 
     # ===============================
     # スケジュール作成ボタン
